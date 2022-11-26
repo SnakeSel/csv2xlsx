@@ -139,7 +139,7 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 					if strings.Contains(rowCell, find.text) {
 
 						// Если меняем стиль текста
-						if find.textChange {
+						if find.target == "text" {
 							// Разбиваем строку по найденому тексту
 							ss := strings.Split(rowCell, find.text)
 							var rtextall []excelize.RichTextRun // Общий итоговый текст ячейки
@@ -187,7 +187,7 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 						}
 
 						// Если меняем стиль ячейки
-						if find.cellChange {
+						if find.target == "cell" {
 
 							// orStyle, err := xlsxFile.GetCellStyle(sheetName, fmt.Sprintf("%s%d", name, n+1))
 							// if err != nil {
@@ -198,18 +198,18 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 
 							for _, action := range find.actions {
 								switch action.name {
-								case "cellbold":
+								case "bold":
 									cellFont.Bold = true
-								case "cellsize":
+								case "size":
 									size, err := strconv.Atoi(action.value)
 									if err == nil {
 										cellFont.Size = float64(size)
 									}
-								case "cellcolor":
+								case "color":
 									if len(action.value) == 6 {
 										cellFont.Color = action.value
 									}
-								case "cellbackground":
+								case "background":
 									if len(action.value) == 6 {
 										cellFill.Type = "pattern"
 										cellFill.Pattern = 1
@@ -230,6 +230,11 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 							if err := xlsxFile.SetCellStyle(sheetName, fmt.Sprintf("%s%d", name, n+1), fmt.Sprintf("%s%d", name, n+1), cellStyle); err != nil {
 								return err
 							}
+						}
+
+						// Если меняем стиль строки
+						if find.target == "row" {
+
 						}
 					}
 

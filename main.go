@@ -24,10 +24,9 @@ type _action struct {
 }
 
 type _find struct {
-	text       string
-	actions    []_action
-	textChange bool
-	cellChange bool
+	text    string
+	actions []_action
+	target  string
 }
 
 type _column struct {
@@ -200,24 +199,15 @@ func loadCFG(iniFile string) error {
 			allfinds := inifile.Section(section).Key("find").ValueWithShadows()
 			for _, find := range allfinds {
 				ss := strings.Split(find, ",")
-				if len(ss) > 1 {
+				if len(ss) > 2 {
 					var f _find
 					f.text = strings.Trim(ss[0], " \"'")
-					f.textChange = false
-					f.cellChange = false
+					f.target = strings.Trim(ss[1], " \"'")
 					// Идем по всем actions
-					for i := 1; i < len(ss); i++ {
+					for i := 2; i < len(ss); i++ {
 						actionsl := strings.Split(strings.TrimSpace(ss[i]), "=")
 						var action _action
 						action.name = strings.Trim(actionsl[0], "\"'")
-
-						// Даем пометку, что измеяем текст или ячейку
-						switch action.name {
-						case "bold", "size", "color":
-							f.textChange = true
-						case "cellcolor", "cellbold", "cellbackground", "cellsize":
-							f.cellChange = true
-						}
 
 						if len(actionsl) > 1 {
 							action.value = strings.Trim(actionsl[1], "\"'")
@@ -263,14 +253,6 @@ func delimiterToRune(delimiter string) rune {
 }
 
 // TO DO
-// replace= "from","to"
-// find="text","action,action,..."
-// 	action:
-// 		size=int
-// 		color="color"
-// 		background="color"
-// 		bold=bool
-
 // -eq
 //     равно
 // -ne

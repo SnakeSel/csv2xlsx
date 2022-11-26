@@ -1,6 +1,6 @@
 # csv2xlsx
 
-Ковертирование csv в xlsx с форматированием.
+Конвертирование csv в xlsx с форматированием.
 
 ```
 csv2xlsx [command] <args>
@@ -49,7 +49,7 @@ csv2xlsx -c config.cfg -f input.csv -o output.xlsx
   - cellbold
   - cellbackground = FFA500
 
-##### Пример файла настроек:
+### Пример файла настроек:
 ```
 # delimiter = разделитель столбцов в csv (по умолчанию \t)
 delimiter="\t"
