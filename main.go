@@ -38,6 +38,11 @@ type _column struct {
 	deleted  bool
 }
 
+type _style struct {
+	alignment excelize.Alignment
+	border    []excelize.Border
+}
+
 type _cfg struct {
 	sheetName string
 	title     string
@@ -45,6 +50,7 @@ type _cfg struct {
 	header    bool
 	delimiter rune
 	cols      []_column
+	style     _style
 }
 
 var cfg _cfg
@@ -129,6 +135,33 @@ func main() {
 
 	sheetName := xlsxFile.GetSheetName(0)
 	if sheetName != "" {
+		// Общий стиль выравнивания текста
+		cfg.style.alignment.WrapText = true
+		cfg.style.alignment.Vertical = "center"
+
+		// Добавить границу
+		if cfg.border {
+			cfg.style.border = []excelize.Border{
+				{
+					Type:  "left",
+					Color: "#000000",
+					Style: 2,
+				}, {
+					Type:  "top",
+					Color: "#000000",
+					Style: 2,
+				}, {
+					Type:  "bottom",
+					Color: "#000000",
+					Style: 2,
+				}, {
+					Type:  "right",
+					Color: "#000000",
+					Style: 2,
+				},
+			}
+		}
+
 		// задаем форматирование
 		if err := xlsxFormatSheet(xlsxFile, sheetName); err != nil {
 			fmt.Println(err.Error())
@@ -253,6 +286,8 @@ func delimiterToRune(delimiter string) rune {
 }
 
 // TO DO
+// 1. Вынести xlsx в отделный модуль
+// 2. Добавить условный формат:
 // -eq
 //     равно
 // -ne

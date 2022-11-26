@@ -138,6 +138,36 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 					// Если в строке нашли текст
 					if strings.Contains(rowCell, find.text) {
 
+						// orStyle, err := xlsxFile.GetCellStyle(sheetName, fmt.Sprintf("%s%d", name, n+1))
+						// if err != nil {
+						// 	return err
+
+						// }
+						// Готовим общие настройки стилей
+						findFont := excelize.Font{}
+						findFill := excelize.Fill{}
+						for _, action := range find.actions {
+							switch action.name {
+							case "bold":
+								findFont.Bold = true
+							case "size":
+								size, err := strconv.Atoi(action.value)
+								if err == nil {
+									findFont.Size = float64(size)
+								}
+							case "color":
+								if len(action.value) == 6 {
+									findFont.Color = action.value
+								}
+							case "background":
+								if len(action.value) == 6 {
+									findFill.Type = "pattern"
+									findFill.Pattern = 1
+									findFill.Color = append(findFill.Color, action.value)
+								}
+							}
+						}
+
 						// Если меняем стиль текста
 						if find.target == "text" {
 							// Разбиваем строку по найденому тексту
@@ -147,23 +177,7 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 							// Отформатированный найденный текст
 							var rfind excelize.RichTextRun
 							rfind.Text = find.text
-							rfind.Font = &excelize.Font{}
-							for _, action := range find.actions {
-								switch action.name {
-								case "bold":
-									rfind.Font.Bold = true
-								case "size":
-									size, err := strconv.Atoi(action.value)
-									if err == nil {
-										rfind.Font.Size = float64(size)
-									}
-								case "color":
-									if len(action.value) == 6 {
-										rfind.Font.Color = action.value
-									}
-								}
-
-							}
+							rfind.Font = &findFont
 
 							// Собираем итоговый текст
 							for i := 0; i < len(ss); i++ {
@@ -189,38 +203,11 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 						// Если меняем стиль ячейки
 						if find.target == "cell" {
 
-							// orStyle, err := xlsxFile.GetCellStyle(sheetName, fmt.Sprintf("%s%d", name, n+1))
-							// if err != nil {
-							// 	return err
-							// }
-							cellFont := excelize.Font{}
-							cellFill := excelize.Fill{}
-
-							for _, action := range find.actions {
-								switch action.name {
-								case "bold":
-									cellFont.Bold = true
-								case "size":
-									size, err := strconv.Atoi(action.value)
-									if err == nil {
-										cellFont.Size = float64(size)
-									}
-								case "color":
-									if len(action.value) == 6 {
-										cellFont.Color = action.value
-									}
-								case "background":
-									if len(action.value) == 6 {
-										cellFill.Type = "pattern"
-										cellFill.Pattern = 1
-										cellFill.Color = append(cellFill.Color, action.value)
-									}
-								}
-							}
-
 							cellStyle, err := xlsxFile.NewStyle(&excelize.Style{
-								Font: &cellFont,
-								Fill: cellFill,
+								Font:      &findFont,
+								Fill:      findFill,
+								Alignment: &cfg.style.alignment,
+								Border:    cfg.style.border,
 							})
 							if err != nil {
 								return err
@@ -234,7 +221,20 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 
 						// Если меняем стиль строки
 						if find.target == "row" {
+							cellStyle, err := xlsxFile.NewStyle(&excelize.Style{
+								Font:      &findFont,
+								Fill:      findFill,
+								Alignment: &cfg.style.alignment,
+								Border:    cfg.style.border,
+							})
+							if err != nil {
+								return err
+							}
 
+							// Устанавливаем стиль строки
+							if err := xlsxFile.SetRowStyle(sheetName, n+1, n+1, cellStyle); err != nil {
+								return err
+							}
 						}
 					}
 
@@ -264,44 +264,12 @@ func xlsxFormatSheet(xlsxFile *excelize.File, sheetName string) error {
 		return err
 	}
 
-	//sheetFont := excelize.Font{}
-	//sheetFill := excelize.Fill{}
-	sheetAlignment := excelize.Alignment{}
-	sheetBorder := []excelize.Border{}
-
-	// Формат текста
-	sheetAlignment.WrapText = true
-	sheetAlignment.Vertical = "center"
-
-	// Добавить границу
-	if cfg.border {
-		sheetBorder = []excelize.Border{
-			{
-				Type:  "left",
-				Color: "#000000",
-				Style: 2,
-			}, {
-				Type:  "top",
-				Color: "#000000",
-				Style: 2,
-			}, {
-				Type:  "bottom",
-				Color: "#000000",
-				Style: 2,
-			}, {
-				Type:  "right",
-				Color: "#000000",
-				Style: 2,
-			},
-		}
-	}
-
 	// Создаем стиль всей таблицы
 	wrapStyle, err := xlsxFile.NewStyle(&excelize.Style{
 		//Font:      &sheetFont,
 		//Fill:      sheetFill,
-		Alignment: &sheetAlignment,
-		Border:    sheetBorder,
+		Alignment: &cfg.style.alignment,
+		Border:    cfg.style.border,
 	})
 	if err != nil {
 		return err
@@ -324,7 +292,7 @@ func xlsxFormatSheet(xlsxFile *excelize.File, sheetName string) error {
 		// Создаем стиль заголовка
 		headStyle, err := xlsxFile.NewStyle(&excelize.Style{
 			Font:   &headerFont,
-			Border: sheetBorder, //параметры границы как в документе
+			Border: cfg.style.border, //параметры границы как в документе
 		})
 		if err != nil {
 			return err
