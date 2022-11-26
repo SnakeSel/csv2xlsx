@@ -36,15 +36,15 @@ csv2xlsx -c config.cfg -f input.csv -o output.xlsx
  - replace = "строка для замены","на что заменяем"
  - delete = удалить столбец из xlsx (логическое)
  - find = text,target,action,action,...
-##### target:
+##### target (для find):
  - text Применяются к найденому тексту
  - cell Применяются ко всей ячейке с найденным текстом
  - row Применяются ко всей строке с найденным текстом
-##### action:
+##### action (для find):
   - size = число. Размер текста.
   - color = строка, 6 символов. Цвет (пример: FF0000)
   - bold Наличие параметра делает текст жирным
-  - cellbackground = FFA500
+  - background = FFA500
 
 ### Пример файла настроек:
 ```
@@ -69,7 +69,7 @@ width=0
 [2]
 width=0
 find="RED",text,color=FF0000,size=12,bold
-find=Внимание,row,cellbold,cellbackground=FFA500,cellsize=14
+find=Внимание,row,bold,background=FFA500,size=14
 
 [3]
 width=100
