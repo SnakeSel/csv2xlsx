@@ -171,7 +171,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Если есть конфиг, применяем насройки
+	// Если есть конфиг, применяем настройки
 	if *cfgPatch != "" {
 		sheetName := xlsxFile.GetSheetName(0)
 		if sheetName != "" {

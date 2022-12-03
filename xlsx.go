@@ -147,7 +147,8 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 			break
 		case 0:
 			if err := colWidthAuto(xlsxFile, sheetName, column.id-deleted); err != nil {
-				return err
+				//return err
+				fmt.Println("[WRN]\tcolWidthAuto: ", err.Error())
 			}
 		default:
 			columnName, err := excelize.ColumnNumberToName(column.id - deleted)
@@ -192,40 +193,46 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 					return err
 				}
 				col := cols[column.id-1]
+
+				// Готовим общие настройки стилей
+				findFont := excelize.Font{}
+				findFill := excelize.Fill{}
+				for _, action := range find.actions {
+					switch action.name {
+					case "bold":
+						findFont.Bold = true
+					case "size":
+						size, err := strconv.Atoi(action.value)
+						if err == nil {
+							findFont.Size = float64(size)
+						}
+					case "color":
+						if len(action.value) == 6 {
+							findFont.Color = action.value
+						}
+					case "background":
+						if len(action.value) == 6 {
+							findFill.Type = "pattern"
+							findFill.Pattern = 1
+							findFill.Color = append(findFill.Color, action.value)
+						}
+					}
+				}
+				// Стиль для текущего find
+				findStyle, err := xlsxFile.NewStyle(&excelize.Style{
+					Font:      &findFont,
+					Fill:      findFill,
+					Alignment: &cfg.style.alignment,
+					Border:    cfg.style.border,
+				})
+				if err != nil {
+					return err
+				}
+
 				// перебираем строки
 				for n, rowCell := range col {
 					// Если в строке нашли текст
 					if strings.Contains(rowCell, find.text) {
-
-						// orStyle, err := xlsxFile.GetCellStyle(sheetName, fmt.Sprintf("%s%d", name, n+1))
-						// if err != nil {
-						// 	return err
-
-						// }
-						// Готовим общие настройки стилей
-						findFont := excelize.Font{}
-						findFill := excelize.Fill{}
-						for _, action := range find.actions {
-							switch action.name {
-							case "bold":
-								findFont.Bold = true
-							case "size":
-								size, err := strconv.Atoi(action.value)
-								if err == nil {
-									findFont.Size = float64(size)
-								}
-							case "color":
-								if len(action.value) == 6 {
-									findFont.Color = action.value
-								}
-							case "background":
-								if len(action.value) == 6 {
-									findFill.Type = "pattern"
-									findFill.Pattern = 1
-									findFill.Color = append(findFill.Color, action.value)
-								}
-							}
-						}
 
 						// Если меняем стиль текста
 						if find.target == "text" {
@@ -261,37 +268,16 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 
 						// Если меняем стиль ячейки
 						if find.target == "cell" {
-
-							cellStyle, err := xlsxFile.NewStyle(&excelize.Style{
-								Font:      &findFont,
-								Fill:      findFill,
-								Alignment: &cfg.style.alignment,
-								Border:    cfg.style.border,
-							})
-							if err != nil {
-								return err
-							}
-
 							// Устанавливаем стиль ячейки
-							if err := xlsxFile.SetCellStyle(sheetName, fmt.Sprintf("%s%d", name, n+1), fmt.Sprintf("%s%d", name, n+1), cellStyle); err != nil {
+							if err := xlsxFile.SetCellStyle(sheetName, fmt.Sprintf("%s%d", name, n+1), fmt.Sprintf("%s%d", name, n+1), findStyle); err != nil {
 								return err
 							}
 						}
 
 						// Если меняем стиль строки
 						if find.target == "row" {
-							cellStyle, err := xlsxFile.NewStyle(&excelize.Style{
-								Font:      &findFont,
-								Fill:      findFill,
-								Alignment: &cfg.style.alignment,
-								Border:    cfg.style.border,
-							})
-							if err != nil {
-								return err
-							}
-
 							// Устанавливаем стиль строки
-							if err := xlsxFile.SetRowStyle(sheetName, n+1, n+1, cellStyle); err != nil {
+							if err := xlsxFile.SetRowStyle(sheetName, n+1, n+1, findStyle); err != nil {
 								return err
 							}
 						}
