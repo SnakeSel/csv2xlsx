@@ -41,38 +41,67 @@ func xlsxSetDefaultStyle() {
 }
 
 // Добавить заголовок
-func xlsxAddTitle(xlsxFile *excelize.File, sheetName string, title string) error {
-	if err := xlsxFile.InsertRow(sheetName, 1); err != nil {
-		return err
+func xlsxAddTitle(xlsxFile *excelize.File, sheetName string) error {
+	var err error
+	text := cfg.title.text
+	// Если text не указан, берем из A1 и строка 1 считается шапкой
+	if text == "" {
+		text, err = xlsxFile.GetCellValue(sheetName, "A1")
+		if err != nil {
+			return err
+		}
+	} else {
+		// Иначе вставлеяем новую строку
+		if err := xlsxFile.InsertRow(sheetName, 1); err != nil {
+			return err
+		}
 	}
 
-	if err := xlsxFile.SetCellRichText(sheetName, "A1", []excelize.RichTextRun{
-		{
-			Text: title,
-			Font: &excelize.Font{
-				Bold: true,
-				Size: 16,
-				//Color:  "2354e8",
-				//Family: "Times New Roman",
-			},
-		},
-	}); err != nil {
+	// Добавляем текст
+	if err := xlsxFile.SetCellStr(sheetName, "A1", text); err != nil {
 		return err
 	}
+	// Font
+	Font := excelize.Font{}
+	Font.Bold = cfg.title.bold
 
-	style, err := xlsxFile.NewStyle(&excelize.Style{
-		Alignment: &excelize.Alignment{
-			Horizontal: "center",
-		},
+	if len(cfg.title.color) == 6 {
+		Font.Color = cfg.title.color
+	}
+	//Font.Family= "Times New Roman"
+	if cfg.title.size != 0 {
+		Font.Size = cfg.title.size
+	}
+
+	// Fill
+	Fill := excelize.Fill{}
+
+	if len(cfg.title.background) == 6 {
+		Fill.Type = "pattern"
+		Fill.Pattern = 1
+		Fill.Color = append(Fill.Color, cfg.title.background)
+	}
+	// Alignment
+	Alignment := cfg.style.alignment //параметры выравнивания как в документе
+	Alignment.Horizontal = "center"
+
+	// Создаем стиль
+	Style, err := xlsxFile.NewStyle(&excelize.Style{
+		Font:      &Font,
+		Fill:      Fill,
+		Border:    cfg.style.border, //параметры границы как в документе
+		Alignment: &Alignment,
 	})
 	if err != nil {
 		return err
 	}
 
-	if err := xlsxFile.SetCellStyle(sheetName, "A1", "A1", style); err != nil {
+	// Применяем стиль
+	if err := xlsxFile.SetCellStyle(sheetName, "A1", "A1", Style); err != nil {
 		return err
 	}
 
+	// Объединем столбцы
 	cols, err := xlsxFile.GetCols(sheetName)
 	if err != nil {
 		return err
@@ -340,7 +369,11 @@ func colWidthAuto(xlsx *excelize.File, sheetName string, colNum int) error {
 
 	col := cols[colNum-1]
 	largestWidth := 0
-	for _, rowCell := range col {
+	for r, rowCell := range col {
+		// Если есть заголовок
+		if r == 0 && colNum == 1 {
+			continue
+		}
 		cellWidth := utf8.RuneCountInString(rowCell) + 2 // + 2 for margin
 		if cellWidth > largestWidth {
 			largestWidth = cellWidth

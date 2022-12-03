@@ -185,7 +185,7 @@ func main() {
 
 			// Добавить Title
 			if cfg.title.enable {
-				if err := xlsxAddTitle(xlsxFile, sheetName, cfg.title.text); err != nil {
+				if err := xlsxAddTitle(xlsxFile, sheetName); err != nil {
 					fmt.Println(err.Error())
 				}
 			}
