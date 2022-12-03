@@ -384,6 +384,11 @@ func colWidthAuto(xlsx *excelize.File, sheetName string, colNum int) error {
 		return err
 	}
 
+	// Максимальная ширина 255 символов
+	if largestWidth > 255 {
+		largestWidth = 255
+	}
+
 	if err := xlsx.SetColWidth(sheetName, name, name, float64(largestWidth)); err != nil {
 		return err
 	}
