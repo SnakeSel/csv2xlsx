@@ -44,11 +44,27 @@ type _style struct {
 	border    []excelize.Border
 }
 
+type _title struct {
+	enable     bool
+	text       string
+	size       float64
+	bold       bool
+	color      string
+	background string
+}
+type _header struct {
+	enable     bool
+	row        int
+	size       float64
+	bold       bool
+	color      string
+	background string
+}
 type _cfg struct {
 	sheetName string
-	title     string
+	title     _title
 	border    bool
-	header    bool
+	header    _header
 	delimiter rune
 	cols      []_column
 	style     _style
@@ -60,6 +76,7 @@ func usage() {
 	flag.PrintDefaults()
 }
 
+// Генерация xlsx из csv
 func generateXLSXFromCSV(csvPath string, delimiter rune) (*excelize.File, error) {
 	csvFile, err := os.Open(csvPath)
 	if err != nil {
@@ -167,8 +184,8 @@ func main() {
 			}
 
 			// Добавить Title
-			if cfg.title != "" {
-				if err := xlsxAddTitle(xlsxFile, sheetName, cfg.title); err != nil {
+			if cfg.title.enable {
+				if err := xlsxAddTitle(xlsxFile, sheetName, cfg.title.text); err != nil {
 					fmt.Println(err.Error())
 				}
 			}
@@ -199,62 +216,91 @@ func loadCFG(iniFile string) error {
 		return err
 	}
 
+	// Общие настройки
 	cfg.sheetName = inifile.Section("").Key("sheet").MustString("")
-	cfg.title = inifile.Section("").Key("title").MustString("")
 	cfg.border = inifile.Section("").Key("border").MustBool(false)
-	cfg.header = inifile.Section("").Key("header").MustBool(false)
-
 	cfg.delimiter = delimiterToRune(inifile.Section("").Key("delimiter").MustString(`\t`))
 
 	for _, section := range inifile.SectionStrings() {
 		// Кроме default
-		if section != "DEFAULT" {
-			// Добавляем данные секции (столбца)
-			var col _column
-			col.id, err = strconv.Atoi(section)
-			if err != nil {
-				return err
-			}
-			col.width = inifile.Section(section).Key("width").MustInt(-1)
-			col.deleted = inifile.Section(section).Key("delete").MustBool(false)
-
-			// Load replaces
-			allreplace := inifile.Section(section).Key("replace").ValueWithShadows()
-			for _, repl := range allreplace {
-				ss := strings.Split(repl, ",")
-				if len(ss) == 2 {
-					col.replaces = append(col.replaces, _replace{strings.Trim(ss[0], "\"'"), strings.Trim(ss[1], " \"'")})
-
-				}
-			}
-
-			// Load finds
-			allfinds := inifile.Section(section).Key("find").ValueWithShadows()
-			for _, find := range allfinds {
-				ss := strings.Split(find, ",")
-				if len(ss) > 2 {
-					var f _find
-					f.text = strings.Trim(ss[0], " \"'")
-					f.target = strings.Trim(ss[1], " \"'")
-					// Идем по всем actions
-					for i := 2; i < len(ss); i++ {
-						actionsl := strings.Split(strings.TrimSpace(ss[i]), "=")
-						var action _action
-						action.name = strings.Trim(actionsl[0], "\"'")
-
-						if len(actionsl) > 1 {
-							action.value = strings.Trim(actionsl[1], "\"'")
-						}
-						f.actions = append(f.actions, action)
-
-					}
-					col.finds = append(col.finds, f)
-
-				}
-			}
-			cfg.cols = append(cfg.cols, col)
-
+		if section == "DEFAULT" {
+			continue
 		}
+
+		// Настройки шапки
+		if section == "title" {
+			if inifile.Section(section).Key("enable").MustBool(false) {
+				cfg.title.enable = true
+				cfg.title.text = inifile.Section(section).Key("text").MustString("")
+				cfg.title.bold = inifile.Section(section).Key("bold").MustBool(false)
+				cfg.title.size = inifile.Section(section).Key("size").MustFloat64(0)
+				cfg.title.color = inifile.Section(section).Key("color").MustString("")
+				cfg.title.background = inifile.Section(section).Key("background").MustString("")
+			} else {
+				cfg.title.enable = false
+			}
+		}
+
+		// Настройки заголовка
+		if section == "header" {
+			if inifile.Section(section).Key("enable").MustBool(false) {
+				cfg.header.enable = true
+				cfg.header.row = inifile.Section(section).Key("row").MustInt(1)
+				cfg.header.bold = inifile.Section(section).Key("bold").MustBool(false)
+				cfg.header.size = inifile.Section(section).Key("size").MustFloat64(0)
+				cfg.header.color = inifile.Section(section).Key("color").MustString("")
+				cfg.header.background = inifile.Section(section).Key("background").MustString("")
+			} else {
+				cfg.header.enable = false
+			}
+		}
+
+		// Настройки столбцов
+		// Добавляем данные секции (столбца)
+		var col _column
+		col.id, err = strconv.Atoi(section)
+		// Если секция не цифровая, пропускаем
+		if err != nil {
+			continue
+		}
+		col.width = inifile.Section(section).Key("width").MustInt(-1)
+		col.deleted = inifile.Section(section).Key("delete").MustBool(false)
+
+		// Load replaces
+		allreplace := inifile.Section(section).Key("replace").ValueWithShadows()
+		for _, repl := range allreplace {
+			ss := strings.Split(repl, ",")
+			if len(ss) == 2 {
+				col.replaces = append(col.replaces, _replace{strings.Trim(ss[0], "\"'"), strings.Trim(ss[1], " \"'")})
+
+			}
+		}
+
+		// Load finds
+		allfinds := inifile.Section(section).Key("find").ValueWithShadows()
+		for _, find := range allfinds {
+			ss := strings.Split(find, ",")
+			if len(ss) > 2 {
+				var f _find
+				f.text = strings.Trim(ss[0], " \"'")
+				f.target = strings.Trim(ss[1], " \"'")
+				// Идем по всем actions
+				for i := 2; i < len(ss); i++ {
+					actionsl := strings.Split(strings.TrimSpace(ss[i]), "=")
+					var action _action
+					action.name = strings.Trim(actionsl[0], "\"'")
+
+					if len(actionsl) > 1 {
+						action.value = strings.Trim(actionsl[1], "\"'")
+					}
+					f.actions = append(f.actions, action)
+
+				}
+				col.finds = append(col.finds, f)
+
+			}
+		}
+		cfg.cols = append(cfg.cols, col)
 
 	}
 

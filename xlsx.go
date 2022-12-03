@@ -311,24 +311,8 @@ func xlsxFormatSheet(xlsxFile *excelize.File, sheetName string) error {
 	}
 
 	// Стиль заголовка
-	if cfg.header {
-		headerFont := excelize.Font{}
-
-		headerFont.Bold = true
-		//headerFont.Color=  "2354e8"
-		//headerFont.Family= "Times New Roman"
-		headerFont.Size = 14
-
-		// Создаем стиль заголовка
-		headStyle, err := xlsxFile.NewStyle(&excelize.Style{
-			Font:   &headerFont,
-			Border: cfg.style.border, //параметры границы как в документе
-		})
-		if err != nil {
-			return err
-		}
-		// Применяем стиль заголовка
-		if err := xlsxFile.SetCellStyle(sheetName, fmt.Sprintf("%s1", firstColumn), fmt.Sprintf("%s1", lastColumn), headStyle); err != nil {
+	if cfg.header.enable {
+		if err := xlsxSetHeader(xlsxFile, sheetName, fmt.Sprintf("%s%d", firstColumn, cfg.header.row), fmt.Sprintf("%s%d", lastColumn, cfg.header.row)); err != nil {
 			return err
 		}
 
@@ -368,6 +352,49 @@ func colWidthAuto(xlsx *excelize.File, sheetName string, colNum int) error {
 	}
 
 	if err := xlsx.SetColWidth(sheetName, name, name, float64(largestWidth)); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Задает стиль заголовка
+func xlsxSetHeader(xlsxFile *excelize.File, sheetName, startCell, endCell string) error {
+
+	// Font
+	headerFont := excelize.Font{}
+	headerFont.Bold = cfg.header.bold
+
+	if len(cfg.header.color) == 6 {
+		headerFont.Color = cfg.header.color
+	}
+	//headerFont.Family= "Times New Roman"
+	if cfg.header.size != 0 {
+		headerFont.Size = cfg.header.size
+	}
+
+	// Fill
+	headerFill := excelize.Fill{}
+
+	if len(cfg.header.background) == 6 {
+		headerFill.Type = "pattern"
+		headerFill.Pattern = 1
+		headerFill.Color = append(headerFill.Color, cfg.header.background)
+	}
+
+	// Создаем стиль заголовка
+	headStyle, err := xlsxFile.NewStyle(&excelize.Style{
+		Font:      &headerFont,
+		Fill:      headerFill,
+		Border:    cfg.style.border,     //параметры границы как в документе
+		Alignment: &cfg.style.alignment, //параметры выравнивания как в документе
+	})
+	if err != nil {
+		return err
+	}
+
+	// Применяем стиль заголовка
+	if err := xlsxFile.SetCellStyle(sheetName, startCell, endCell, headStyle); err != nil {
 		return err
 	}
 
