@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 
 	"strconv"
@@ -76,9 +77,31 @@ func generateXLSXFromCSV(csvPath string, delimiter rune) (*excelize.File, error)
 	sheet := xlsxFile.GetSheetName(0)
 
 	row := 1
-	fields, err := reader.Read()
 
 	for err == nil {
+		// Считываем следующую строку
+		fields, err := reader.Read()
+		if err != nil {
+			// switch err {
+			// case csv.ErrFieldCount:
+			// 	fmt.Println("Requested item not found")
+			// case io.EOF:
+			// 	fmt.Println("EOF")
+			// default:
+			// 	fmt.Println("Unknown error occurred")
+			// }
+			if err == io.EOF {
+				break
+			}
+			// Пытаемся обработать заголовок ВНИИРА
+			if row == 2 {
+				reader.FieldsPerRecord = 0
+			} else {
+				return nil, err
+			}
+
+		}
+
 		//if len(fields) != 0 {
 		for i, field := range fields {
 			column, err := excelize.ColumnNumberToName(i + 1)
@@ -88,13 +111,11 @@ func generateXLSXFromCSV(csvPath string, delimiter rune) (*excelize.File, error)
 
 			err = xlsxFile.SetCellStr(sheet, fmt.Sprintf("%s%d", column, row), field)
 			if err != nil {
-				fmt.Println(err.Error())
 				return nil, err
 			}
 		}
-
 		//}
-		fields, err = reader.Read()
+
 		row++
 	}
 
@@ -133,54 +154,33 @@ func main() {
 		os.Exit(1)
 	}
 
-	sheetName := xlsxFile.GetSheetName(0)
-	if sheetName != "" {
-		// Общий стиль выравнивания текста
-		cfg.style.alignment.WrapText = true
-		cfg.style.alignment.Vertical = "center"
+	// Если есть конфиг, применяем насройки
+	if *cfgPatch != "" {
+		sheetName := xlsxFile.GetSheetName(0)
+		if sheetName != "" {
+			// Задать общий стиль
+			xlsxSetDefaultStyle()
 
-		// Добавить границу
-		if cfg.border {
-			cfg.style.border = []excelize.Border{
-				{
-					Type:  "left",
-					Color: "#000000",
-					Style: 2,
-				}, {
-					Type:  "top",
-					Color: "#000000",
-					Style: 2,
-				}, {
-					Type:  "bottom",
-					Color: "#000000",
-					Style: 2,
-				}, {
-					Type:  "right",
-					Color: "#000000",
-					Style: 2,
-				},
-			}
-		}
-
-		// задаем форматирование
-		if err := xlsxFormatSheet(xlsxFile, sheetName); err != nil {
-			fmt.Println(err.Error())
-		}
-
-		// Добавить Title
-		if cfg.title != "" {
-			if err := xlsxAddTitle(xlsxFile, sheetName, cfg.title); err != nil {
+			// задаем форматирование
+			if err := xlsxFormatSheet(xlsxFile, sheetName); err != nil {
 				fmt.Println(err.Error())
 			}
-		}
 
-		// переименовываем лист
-		if cfg.sheetName != "" {
-			xlsxFile.SetSheetName(sheetName, cfg.sheetName)
-			//sheetName = cfg.sheetName
+			// Добавить Title
+			if cfg.title != "" {
+				if err := xlsxAddTitle(xlsxFile, sheetName, cfg.title); err != nil {
+					fmt.Println(err.Error())
+				}
+			}
+
+			// переименовываем лист
+			if cfg.sheetName != "" {
+				xlsxFile.SetSheetName(sheetName, cfg.sheetName)
+				//sheetName = cfg.sheetName
+			}
+		} else {
+			fmt.Println(fmt.Errorf("sheet not found").Error())
 		}
-	} else {
-		fmt.Println(fmt.Errorf("sheet not found").Error())
 	}
 
 	// Сохраняем результат

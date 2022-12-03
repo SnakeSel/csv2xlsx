@@ -10,6 +10,36 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
+// Задать общий стиль
+func xlsxSetDefaultStyle() {
+	// выравнивание текста
+	cfg.style.alignment.WrapText = true
+	cfg.style.alignment.Vertical = "center"
+
+	// Добавить границу
+	if cfg.border {
+		cfg.style.border = []excelize.Border{
+			{
+				Type:  "left",
+				Color: "#000000",
+				Style: 2,
+			}, {
+				Type:  "top",
+				Color: "#000000",
+				Style: 2,
+			}, {
+				Type:  "bottom",
+				Color: "#000000",
+				Style: 2,
+			}, {
+				Type:  "right",
+				Color: "#000000",
+				Style: 2,
+			},
+		}
+	}
+}
+
 // Добавить заголовок
 func xlsxAddTitle(xlsxFile *excelize.File, sheetName string, title string) error {
 	if err := xlsxFile.InsertRow(sheetName, 1); err != nil {
@@ -318,6 +348,10 @@ func colWidthAuto(xlsx *excelize.File, sheetName string, colNum int) error {
 	cols, err := xlsx.GetCols(sheetName)
 	if err != nil {
 		return err
+	}
+
+	if len(cols) <= colNum-1 {
+		return fmt.Errorf("[ERR] column %d not found, len: %d\n", colNum, len(cols))
 	}
 
 	col := cols[colNum-1]
