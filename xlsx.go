@@ -14,7 +14,7 @@ import (
 func xlsxSetDefaultStyle() {
 	// выравнивание текста
 	cfg.style.alignment.WrapText = true
-	cfg.style.alignment.Vertical = "center"
+	//cfg.style.alignment.Vertical = "center"
 
 	// Добавить границу
 	if cfg.border {
@@ -197,6 +197,8 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 				// Готовим общие настройки стилей
 				findFont := excelize.Font{}
 				findFill := excelize.Fill{}
+				findAlignment := cfg.style.alignment
+
 				for _, action := range find.actions {
 					switch action.name {
 					case "bold":
@@ -205,24 +207,47 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 						size, err := strconv.Atoi(action.value)
 						if err == nil {
 							findFont.Size = float64(size)
+						} else {
+							fmt.Printf("[WRN]\tcolumnsWork|find|%s: unknown size: %s\n", find.text, action.value)
 						}
 					case "color":
 						if len(action.value) == 6 {
 							findFont.Color = action.value
+						} else {
+							fmt.Printf("[WRN]\tcolumnsWork|find|%s: unknown color: %s\n", find.text, action.value)
 						}
 					case "background":
 						if len(action.value) == 6 {
 							findFill.Type = "pattern"
 							findFill.Pattern = 1
 							findFill.Color = append(findFill.Color, action.value)
+						} else {
+							fmt.Printf("[WRN]\tcolumnsWork|find|%s: unknown background: %s\n", find.text, action.value)
 						}
-					}
-				}
+					case "horizontal":
+						switch action.value {
+						case "left", "center", "right", "fill", "distributed":
+							findAlignment.Horizontal = action.value
+						default:
+							fmt.Printf("[WRN]\tcolumnsWork|find|%s: unknown horizontal: %s\n", find.text, action.value)
+						}
+					case "vertical":
+						switch action.value {
+						case "top", "center", "justify", "distributed":
+							findAlignment.Vertical = action.value
+						default:
+							fmt.Printf("[WRN]\tcolumnsWork|find|%s: unknown vertical: %s\n", find.text, action.value)
+						}
+					default:
+						fmt.Printf("[WRN]\tcolumnsWork|find|%s: unknown action: %s\n", find.text, action.name)
+					} // switch
+				} // for range find.actions
+
 				// Стиль для текущего find
 				findStyle, err := xlsxFile.NewStyle(&excelize.Style{
 					Font:      &findFont,
 					Fill:      findFill,
-					Alignment: &cfg.style.alignment,
+					Alignment: &findAlignment,
 					Border:    cfg.style.border,
 				})
 				if err != nil {
@@ -282,12 +307,12 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 							}
 						}
 					}
-
-				}
-			}
-		}
+				} // for range col
+			} // for range column.finds
+		} // if column.finds
 
 	}
+
 	return nil
 }
 

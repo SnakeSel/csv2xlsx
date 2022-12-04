@@ -175,8 +175,6 @@ func main() {
 	if *cfgPatch != "" {
 		sheetName := xlsxFile.GetSheetName(0)
 		if sheetName != "" {
-			// Задать общий стиль
-			xlsxSetDefaultStyle()
 
 			// задаем форматирование
 			if err := xlsxFormatSheet(xlsxFile, sheetName); err != nil {
@@ -220,6 +218,26 @@ func loadCFG(iniFile string) error {
 	cfg.sheetName = inifile.Section("").Key("sheet").MustString("")
 	cfg.border = inifile.Section("").Key("border").MustBool(false)
 	cfg.delimiter = delimiterToRune(inifile.Section("").Key("delimiter").MustString(`\t`))
+
+	// Задать общий стиль
+	xlsxSetDefaultStyle()
+
+	horizontal := inifile.Section("").Key("horizontal").MustString("")
+	switch horizontal {
+	case "left", "center", "right", "fill", "distributed":
+		cfg.style.alignment.Horizontal = horizontal
+	case "":
+	default:
+		fmt.Println("[WRN]\tloadCFG: unknown horizontal: ", horizontal)
+	}
+
+	vertical := inifile.Section("").Key("vertical").MustString("center")
+	switch vertical {
+	case "top", "center", "justify", "distributed":
+		cfg.style.alignment.Vertical = vertical
+	default:
+		fmt.Println("[WRN]\tloadCFG: unknown vertical: ", vertical)
+	}
 
 	for _, section := range inifile.SectionStrings() {
 		// Кроме default
@@ -302,7 +320,7 @@ func loadCFG(iniFile string) error {
 		}
 		cfg.cols = append(cfg.cols, col)
 
-	}
+	} // конец цикла по секциям
 
 	return nil
 }
