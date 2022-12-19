@@ -28,7 +28,7 @@ csv2xlsx -c config.cfg -f input.csv -o output.xlsx
  - delimiter = Разделитель столбцов в csv (по умолчанию \t);
  - sheet = Имя листа (по умолчанию Sheet1);
  - border = Рисовать границу (1|0);
- - horizontal = Выравнивание текста в ячейках по горизонтали (left|center|right|fill|distributed);
+ - horizontal = Выравнивание текста в ячейках по горизонтали (left|center|right|fill|distributed|justify|centerContinuous);
  - vertical = Выравнивание текста в ячейках по вертикали (top|center|justify|distributed);
 
 #### [title] - Добавить шапку с текстом
@@ -50,6 +50,7 @@ csv2xlsx -c config.cfg -f input.csv -o output.xlsx
 
 ##### [Имя секции] - номер столбца (начало с 1)
  - width = ширина столбца (0 ширина по тексту)
+ - horizontal = Выравнивание текста в ячейках по горизонтали (left|center|right|fill|distributed|justify|centerContinuous);
  - replace = "строка для замены","на что заменяем"
  - delete = удалить столбец из xlsx (логическое)
  - find = text,target,action,action,...

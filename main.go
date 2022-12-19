@@ -226,17 +226,20 @@ func loadCFG(iniFile string) error {
 
 	horizontal := inifile.Section("").Key("horizontal").MustString("")
 	switch horizontal {
-	case "left", "center", "right", "fill", "distributed":
+	case "left", "center", "right", "fill", "distributed", "justify", "centerContinuous":
 		cfg.style.alignment.Horizontal = horizontal
 	case "":
+		break
 	default:
 		fmt.Println("[WRN]\tloadCFG: unknown horizontal: ", horizontal)
 	}
 
-	vertical := inifile.Section("").Key("vertical").MustString("center")
+	vertical := inifile.Section("").Key("vertical").MustString("")
 	switch vertical {
 	case "top", "center", "justify", "distributed":
 		cfg.style.alignment.Vertical = vertical
+	case "":
+		break
 	default:
 		fmt.Println("[WRN]\tloadCFG: unknown vertical: ", vertical)
 	}

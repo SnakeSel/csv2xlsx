@@ -164,7 +164,7 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 		colAlignment := cfg.style.alignment
 
 		switch column.horizontal {
-		case "left", "center", "right", "fill", "distributed":
+		case "left", "center", "right", "fill", "distributed", "justify", "centerContinuous":
 			colAlignment.Horizontal = column.horizontal
 			// Стиль для текущего column
 			colStyle, err := xlsxFile.NewStyle(&excelize.Style{
@@ -395,6 +395,7 @@ func xlsxFormatSheet(xlsxFile *excelize.File, sheetName string) error {
 	if err != nil {
 		return err
 	}
+
 	// Стиль заголовка
 	if cfg.header.enable {
 		if err := xlsxSetHeader(xlsxFile, sheetName, fmt.Sprintf("%s%d", firstColumn, cfg.header.row), fmt.Sprintf("%s%d", lastColumn, cfg.header.row)); err != nil {
