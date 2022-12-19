@@ -33,10 +33,11 @@ type _find struct {
 type _column struct {
 	id int
 	//name        string
-	width    int
-	replaces []_replace
-	finds    []_find
-	deleted  bool
+	width      int
+	replaces   []_replace
+	finds      []_find
+	deleted    bool
+	horizontal string
 }
 
 type _style struct {
@@ -284,6 +285,7 @@ func loadCFG(iniFile string) error {
 			continue
 		}
 		col.width = inifile.Section(section).Key("width").MustInt(-1)
+		col.horizontal = inifile.Section(section).Key("horizontal").MustString("")
 		col.deleted = inifile.Section(section).Key("delete").MustBool(false)
 
 		// Load replaces

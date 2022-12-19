@@ -160,6 +160,37 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 			}
 		}
 
+		// Стиль столбца
+		colAlignment := cfg.style.alignment
+
+		switch column.horizontal {
+		case "left", "center", "right", "fill", "distributed":
+			colAlignment.Horizontal = column.horizontal
+			// Стиль для текущего column
+			colStyle, err := xlsxFile.NewStyle(&excelize.Style{
+				Alignment: &colAlignment,
+				Border:    cfg.style.border,
+			})
+			if err != nil {
+				//return err
+				fmt.Println("[WRN]\tcolumnsWork[%d]: %s\n", column.id, err.Error())
+				break
+			}
+			colName, err := excelize.ColumnNumberToName(column.id - deleted)
+			if err != nil {
+				fmt.Println("[WRN]\tcolumnsWork[%d]: %s\n", column.id, err.Error())
+				break
+			}
+			if err := xlsxFile.SetColStyle(sheetName, colName, colStyle); err != nil {
+				fmt.Println("[WRN]\tcolumnsWork[%d]: %s\n", column.id, err.Error())
+				break
+			}
+		case "":
+			break
+		default:
+			fmt.Printf("[WRN]\tcolumnsWork[%d]: unknown horizontal: %s\n", column.id, column.horizontal)
+		}
+
 		// Правила замены
 		if len(column.replaces) > 0 {
 			for _, replace := range column.replaces {
@@ -197,7 +228,7 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 				// Готовим общие настройки стилей
 				findFont := excelize.Font{}
 				findFill := excelize.Fill{}
-				findAlignment := cfg.style.alignment
+				findAlignment := colAlignment
 
 				for _, action := range find.actions {
 					switch action.name {
@@ -350,17 +381,25 @@ func xlsxFormatSheet(xlsxFile *excelize.File, sheetName string) error {
 		return err
 	}
 
+	// Обрабатываем параметры столбцов
+	if err = columnsWork(xlsxFile, sheetName); err != nil {
+		return err
+	}
+
+	// Получаем данные о столбцах (могли измениться в columnsWork)
+	cols, err = xlsxFile.GetCols(sheetName)
+	if err != nil {
+		return err
+	}
+	lastColumn, err = excelize.ColumnNumberToName(len(cols))
+	if err != nil {
+		return err
+	}
 	// Стиль заголовка
 	if cfg.header.enable {
 		if err := xlsxSetHeader(xlsxFile, sheetName, fmt.Sprintf("%s%d", firstColumn, cfg.header.row), fmt.Sprintf("%s%d", lastColumn, cfg.header.row)); err != nil {
 			return err
 		}
-
-	}
-
-	// Обрабатываем параметры столбцов
-	if err := columnsWork(xlsxFile, sheetName); err != nil {
-		return err
 	}
 
 	return nil
