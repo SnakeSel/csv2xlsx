@@ -431,12 +431,22 @@ func xlsxSetHeader(xlsxFile *excelize.File, sheetName, startCell, endCell string
 		headerFill.Color = append(headerFill.Color, cfg.header.background)
 	}
 
+	// Alignment
+	headerAlignment := cfg.style.alignment //параметры выравнивания как в документе
+
+	switch cfg.header.horizontal {
+	case "left", "center", "right", "fill", "distributed":
+		headerAlignment.Horizontal = cfg.header.horizontal
+	default:
+		fmt.Printf("[WRN]\txlsxSetHeader: unknown horizontal: %s\n", cfg.header.horizontal)
+	}
+
 	// Создаем стиль заголовка
 	headStyle, err := xlsxFile.NewStyle(&excelize.Style{
 		Font:      &headerFont,
 		Fill:      headerFill,
-		Border:    cfg.style.border,     //параметры границы как в документе
-		Alignment: &cfg.style.alignment, //параметры выравнивания как в документе
+		Border:    cfg.style.border, //параметры границы как в документе
+		Alignment: &headerAlignment,
 	})
 	if err != nil {
 		return err

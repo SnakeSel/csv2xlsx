@@ -59,6 +59,7 @@ type _header struct {
 	bold       bool
 	color      string
 	background string
+	horizontal string
 }
 type _cfg struct {
 	sheetName string
@@ -268,6 +269,7 @@ func loadCFG(iniFile string) error {
 				cfg.header.size = inifile.Section(section).Key("size").MustFloat64(0)
 				cfg.header.color = inifile.Section(section).Key("color").MustString("")
 				cfg.header.background = inifile.Section(section).Key("background").MustString("")
+				cfg.header.horizontal = inifile.Section(section).Key("horizontal").MustString("center")
 			} else {
 				cfg.header.enable = false
 			}
