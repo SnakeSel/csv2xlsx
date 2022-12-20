@@ -14,7 +14,6 @@ import (
 func xlsxSetDefaultStyle() {
 	// выравнивание текста
 	cfg.style.alignment.WrapText = true
-	//cfg.style.alignment.Vertical = "center"
 
 	// Добавить границу
 	if cfg.border {
@@ -131,7 +130,7 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 	for _, column := range cfg.cols {
 		// Удаляем столбцы
 		if column.deleted {
-			name, err := excelize.ColumnNumberToName(column.id)
+			name, err := excelize.ColumnNumberToName(column.id - deleted)
 			if err != nil {
 				return err
 			}
@@ -141,6 +140,13 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 			deleted++
 			continue
 		}
+
+		// Получаем имя текущего столбца
+		columnName, err := excelize.ColumnNumberToName(column.id - deleted)
+		if err != nil {
+			return err
+		}
+
 		// Ширина столбцов
 		switch column.width {
 		case -1:
@@ -151,10 +157,6 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 				fmt.Println("[WRN]\tcolWidthAuto: ", err.Error())
 			}
 		default:
-			columnName, err := excelize.ColumnNumberToName(column.id - deleted)
-			if err != nil {
-				return err
-			}
 			if err := xlsxFile.SetColWidth(sheetName, columnName, columnName, float64(column.width)); err != nil {
 				return err
 			}
@@ -163,9 +165,11 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 		// Стиль столбца
 		colAlignment := cfg.style.alignment
 
-		switch column.horizontal {
-		case "left", "center", "right", "fill", "distributed", "justify", "centerContinuous":
-			colAlignment.Horizontal = column.horizontal
+		if column.horizontal != "" {
+			if err := setAlignment(&colAlignment, "horizontal", column.horizontal); err != nil {
+				fmt.Println("[WRN]\tcolumnsWork[%d]: %s\n", column.id, err.Error())
+				break
+			}
 			// Стиль для текущего column
 			colStyle, err := xlsxFile.NewStyle(&excelize.Style{
 				Alignment: &colAlignment,
@@ -176,19 +180,11 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 				fmt.Println("[WRN]\tcolumnsWork[%d]: %s\n", column.id, err.Error())
 				break
 			}
-			colName, err := excelize.ColumnNumberToName(column.id - deleted)
-			if err != nil {
+
+			if err := xlsxFile.SetColStyle(sheetName, columnName, colStyle); err != nil {
 				fmt.Println("[WRN]\tcolumnsWork[%d]: %s\n", column.id, err.Error())
 				break
 			}
-			if err := xlsxFile.SetColStyle(sheetName, colName, colStyle); err != nil {
-				fmt.Println("[WRN]\tcolumnsWork[%d]: %s\n", column.id, err.Error())
-				break
-			}
-		case "":
-			break
-		default:
-			fmt.Printf("[WRN]\tcolumnsWork[%d]: unknown horizontal: %s\n", column.id, column.horizontal)
 		}
 
 		// Правила замены
@@ -203,13 +199,9 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 					replaceTo = "\t"
 				}
 
-				name, err := excelize.ColumnNumberToName(column.id - deleted)
-				if err != nil {
-					return err
-				}
-				col := cols[column.id-1]
-				for n, rowCell := range col {
-					if err := xlsxFile.SetCellStr(sheetName, fmt.Sprintf("%s%d", name, n+1), strings.ReplaceAll(rowCell, replace.from, replaceTo)); err != nil {
+				rows := cols[column.id-1]
+				for n, rowCell := range rows {
+					if err := xlsxFile.SetCellStr(sheetName, fmt.Sprintf("%s%d", columnName, n+1), strings.ReplaceAll(rowCell, replace.from, replaceTo)); err != nil {
 						return err
 					}
 				}
@@ -219,11 +211,8 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 		// Правила поиска
 		if len(column.finds) > 0 {
 			for _, find := range column.finds {
-				name, err := excelize.ColumnNumberToName(column.id - deleted)
-				if err != nil {
-					return err
-				}
-				col := cols[column.id-1]
+
+				rows := cols[column.id-1]
 
 				// Готовим общие настройки стилей
 				findFont := excelize.Font{}
@@ -256,19 +245,15 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 							fmt.Printf("[WRN]\tcolumnsWork|find|%s: unknown background: %s\n", find.text, action.value)
 						}
 					case "horizontal":
-						switch action.value {
-						case "left", "center", "right", "fill", "distributed":
-							findAlignment.Horizontal = action.value
-						default:
-							fmt.Printf("[WRN]\tcolumnsWork|find|%s: unknown horizontal: %s\n", find.text, action.value)
+						if err := setAlignment(&findAlignment, "horizontal", action.value); err != nil {
+							fmt.Printf("[WRN]\tcolumnsWork|find|%s: %s\n", find.text, err.Error())
 						}
+
 					case "vertical":
-						switch action.value {
-						case "top", "center", "justify", "distributed":
-							findAlignment.Vertical = action.value
-						default:
-							fmt.Printf("[WRN]\tcolumnsWork|find|%s: unknown vertical: %s\n", find.text, action.value)
+						if err := setAlignment(&findAlignment, "vertical", action.value); err != nil {
+							fmt.Printf("[WRN]\tcolumnsWork|find|%s: %s\n", find.text, err.Error())
 						}
+
 					default:
 						fmt.Printf("[WRN]\tcolumnsWork|find|%s: unknown action: %s\n", find.text, action.name)
 					} // switch
@@ -286,7 +271,7 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 				}
 
 				// перебираем строки
-				for n, rowCell := range col {
+				for n, rowCell := range rows {
 					// Если в строке нашли текст
 					if strings.Contains(rowCell, find.text) {
 
@@ -317,7 +302,7 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 							}
 
 							// Заносим текст в ячейку
-							if err := xlsxFile.SetCellRichText(sheetName, fmt.Sprintf("%s%d", name, n+1), rtextall); err != nil {
+							if err := xlsxFile.SetCellRichText(sheetName, fmt.Sprintf("%s%d", columnName, n+1), rtextall); err != nil {
 								return err
 							}
 						}
@@ -325,7 +310,7 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 						// Если меняем стиль ячейки
 						if find.target == "cell" {
 							// Устанавливаем стиль ячейки
-							if err := xlsxFile.SetCellStyle(sheetName, fmt.Sprintf("%s%d", name, n+1), fmt.Sprintf("%s%d", name, n+1), findStyle); err != nil {
+							if err := xlsxFile.SetCellStyle(sheetName, fmt.Sprintf("%s%d", columnName, n+1), fmt.Sprintf("%s%d", columnName, n+1), findStyle); err != nil {
 								return err
 							}
 						}
@@ -356,10 +341,6 @@ func xlsxFormatSheet(xlsxFile *excelize.File, sheetName string) error {
 		return err
 	}
 
-	firstColumn, err := excelize.ColumnNumberToName(1)
-	if err != nil {
-		return err
-	}
 	lastColumn, err := excelize.ColumnNumberToName(len(cols))
 	if err != nil {
 		return err
@@ -384,23 +365,6 @@ func xlsxFormatSheet(xlsxFile *excelize.File, sheetName string) error {
 	// Обрабатываем параметры столбцов
 	if err = columnsWork(xlsxFile, sheetName); err != nil {
 		return err
-	}
-
-	// Получаем данные о столбцах (могли измениться в columnsWork)
-	cols, err = xlsxFile.GetCols(sheetName)
-	if err != nil {
-		return err
-	}
-	lastColumn, err = excelize.ColumnNumberToName(len(cols))
-	if err != nil {
-		return err
-	}
-
-	// Стиль заголовка
-	if cfg.header.enable {
-		if err := xlsxSetHeader(xlsxFile, sheetName, fmt.Sprintf("%s%d", firstColumn, cfg.header.row), fmt.Sprintf("%s%d", lastColumn, cfg.header.row)); err != nil {
-			return err
-		}
 	}
 
 	return nil
@@ -474,11 +438,8 @@ func xlsxSetHeader(xlsxFile *excelize.File, sheetName, startCell, endCell string
 	// Alignment
 	headerAlignment := cfg.style.alignment //параметры выравнивания как в документе
 
-	switch cfg.header.horizontal {
-	case "left", "center", "right", "fill", "distributed":
-		headerAlignment.Horizontal = cfg.header.horizontal
-	default:
-		fmt.Printf("[WRN]\txlsxSetHeader: unknown horizontal: %s\n", cfg.header.horizontal)
+	if err := setAlignment(&headerAlignment, "horizontal", cfg.header.horizontal); err != nil {
+		fmt.Printf("[WRN]\txlsxSetHeader: %s\n", err.Error())
 	}
 
 	// Создаем стиль заголовка
@@ -495,6 +456,36 @@ func xlsxSetHeader(xlsxFile *excelize.File, sheetName, startCell, endCell string
 	// Применяем стиль заголовка
 	if err := xlsxFile.SetCellStyle(sheetName, startCell, endCell, headStyle); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+// Задать парметры выравнивания
+// param = horizontal|vertical
+func setAlignment(alignment *excelize.Alignment, param, value string) error {
+
+	switch param {
+	case "horizontal":
+		switch value {
+		case "left", "center", "right", "fill", "distributed", "justify", "centerContinuous":
+			alignment.Horizontal = value
+		case "":
+			break
+		default:
+			return fmt.Errorf("Unknown value: %s", value)
+		}
+	case "vertical":
+		switch value {
+		case "top", "center", "justify", "distributed":
+			alignment.Vertical = value
+		case "":
+			break
+		default:
+			fmt.Println("Unknown value: %s", value)
+		}
+	default:
+		return fmt.Errorf("Unknown param: %s", param)
 	}
 
 	return nil

@@ -175,12 +175,33 @@ func main() {
 
 	// Если есть конфиг, применяем настройки
 	if *cfgPatch != "" {
+		// Получаем название листа
 		sheetName := xlsxFile.GetSheetName(0)
 		if sheetName != "" {
 
 			// задаем форматирование
 			if err := xlsxFormatSheet(xlsxFile, sheetName); err != nil {
 				fmt.Println(err.Error())
+			}
+
+			// Стиль заголовка
+			if cfg.header.enable {
+				// Получаем последний столбец
+				cols, err := xlsxFile.GetCols(sheetName)
+				if err != nil {
+					fmt.Println(err.Error())
+					return
+				}
+				lastColumn, err := excelize.ColumnNumberToName(len(cols))
+				if err != nil {
+					fmt.Println(err.Error())
+					return
+				}
+				// Устанавливаем стиль заголовка
+				if err := xlsxSetHeader(xlsxFile, sheetName, fmt.Sprintf("A%d", cfg.header.row), fmt.Sprintf("%s%d", lastColumn, cfg.header.row)); err != nil {
+					fmt.Println(err.Error())
+					return
+				}
 			}
 
 			// Добавить Title
@@ -195,6 +216,7 @@ func main() {
 				xlsxFile.SetSheetName(sheetName, cfg.sheetName)
 				//sheetName = cfg.sheetName
 			}
+
 		} else {
 			fmt.Println(fmt.Errorf("sheet not found").Error())
 		}
@@ -224,26 +246,16 @@ func loadCFG(iniFile string) error {
 	// Задать общий стиль
 	xlsxSetDefaultStyle()
 
-	horizontal := inifile.Section("").Key("horizontal").MustString("")
-	switch horizontal {
-	case "left", "center", "right", "fill", "distributed", "justify", "centerContinuous":
-		cfg.style.alignment.Horizontal = horizontal
-	case "":
-		break
-	default:
-		fmt.Println("[WRN]\tloadCFG: unknown horizontal: ", horizontal)
+	// Alignment
+	if err := setAlignment(&cfg.style.alignment, "horizontal", inifile.Section("").Key("horizontal").MustString("")); err != nil {
+		fmt.Println("[WRN]\tloadCFG: horizontal: ", err.Error())
 	}
 
-	vertical := inifile.Section("").Key("vertical").MustString("")
-	switch vertical {
-	case "top", "center", "justify", "distributed":
-		cfg.style.alignment.Vertical = vertical
-	case "":
-		break
-	default:
-		fmt.Println("[WRN]\tloadCFG: unknown vertical: ", vertical)
+	if err := setAlignment(&cfg.style.alignment, "vertical", inifile.Section("").Key("vertical").MustString("")); err != nil {
+		fmt.Println("[WRN]\tloadCFG: vertical: ", err.Error())
 	}
 
+	// Секции
 	for _, section := range inifile.SectionStrings() {
 		// Кроме default
 		if section == "DEFAULT" {
