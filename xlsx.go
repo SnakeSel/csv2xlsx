@@ -70,7 +70,7 @@ func xlsxAddTitle(xlsxFile *excelize.File, sheetName string) error {
 	if len(cfg.title.color) == 6 {
 		Font.Color = cfg.title.color
 	}
-	//Font.Family= "Times New Roman"
+	// Font.Family= "Times New Roman"
 	if cfg.title.size != 0 {
 		Font.Size = cfg.title.size
 	}
@@ -356,7 +356,7 @@ func colWidthAuto(xlsx *excelize.File, sheetName string, colNum int) error {
 	}
 
 	if len(cols) <= colNum-1 {
-		return fmt.Errorf("[ERR] column %d not found, len: %d\n", colNum, len(cols))
+		return fmt.Errorf("[ERR] column %d not found, len: %d", colNum, len(cols))
 	}
 
 	col := cols[colNum-1]
@@ -450,7 +450,7 @@ func setAlignment(alignment *excelize.Alignment, param, value string) error {
 		case "":
 			break
 		default:
-			return fmt.Errorf("Unknown value: %s", value)
+			return fmt.Errorf("unknown value: %s", value)
 		}
 	case "vertical":
 		switch value {
@@ -459,10 +459,10 @@ func setAlignment(alignment *excelize.Alignment, param, value string) error {
 		case "":
 			break
 		default:
-			fmt.Println("Unknown value: ", value)
+			fmt.Println("unknown value: ", value)
 		}
 	default:
-		return fmt.Errorf("Unknown param: %s", param)
+		return fmt.Errorf("unknown param: %s", param)
 	}
 
 	return nil

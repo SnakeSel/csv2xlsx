@@ -14,7 +14,7 @@ command:
   -o string
     Path to the XLSX output file
 ```
-## Использвание
+## Использование
 #### Простая конвертация csv в xlsx
 ```sh
 csv2xlsx -f input.csv -o output.xlsx

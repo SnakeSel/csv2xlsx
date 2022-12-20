@@ -14,6 +14,8 @@ import (
 	"gopkg.in/ini.v1"
 )
 
+var version = "20221220"
+
 type _replace struct {
 	from string
 	to   string
@@ -32,7 +34,7 @@ type _find struct {
 
 type _column struct {
 	id int
-	//name        string
+	// name        string
 	width      int
 	replaces   []_replace
 	finds      []_find
@@ -75,7 +77,12 @@ type _cfg struct {
 var cfg _cfg
 
 func usage() {
+	fmt.Println("csv2xlsx Конвертирование csv в xlsx с форматированием.")
+	fmt.Printf("версия: %s\n\n", version)
+	fmt.Println("csv2xlsx [command] <args>")
+	fmt.Println("command:")
 	flag.PrintDefaults()
+
 }
 
 // Генерация xlsx из csv
@@ -87,12 +94,12 @@ func generateXLSXFromCSV(csvPath string, delimiter rune) (*excelize.File, error)
 	defer csvFile.Close()
 
 	reader := csv.NewReader(csvFile)
-	//reader.Comma = '\t'
+	// reader.Comma = '\t'
 	reader.Comma = delimiter
 
 	xlsxFile := excelize.NewFile()
 
-	//sheet := "Sheet1"
+	// sheet := "Sheet1"
 	sheet := xlsxFile.GetSheetName(0)
 
 	row := 1
@@ -121,7 +128,6 @@ func generateXLSXFromCSV(csvPath string, delimiter rune) (*excelize.File, error)
 
 		}
 
-		//if len(fields) != 0 {
 		for i, field := range fields {
 			column, err := excelize.ColumnNumberToName(i + 1)
 			if err != nil {
@@ -133,7 +139,6 @@ func generateXLSXFromCSV(csvPath string, delimiter rune) (*excelize.File, error)
 				return nil, err
 			}
 		}
-		//}
 
 		row++
 	}
@@ -214,7 +219,6 @@ func main() {
 			// переименовываем лист
 			if cfg.sheetName != "" {
 				xlsxFile.SetSheetName(sheetName, cfg.sheetName)
-				//sheetName = cfg.sheetName
 			}
 
 		} else {
@@ -360,12 +364,10 @@ func delimiterToRune(delimiter string) rune {
 	default:
 		if len(delimiter) > 0 {
 			return rune(delimiter[0])
-		} else {
-			return rune('\t')
 		}
 	}
 
-	//return rune('\t')
+	return rune('\t')
 }
 
 // TO DO
