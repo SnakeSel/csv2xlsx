@@ -1,3 +1,6 @@
+// xlsx.go содержит функции манипуляций с готовым файлом xlsx
+//
+
 package main
 
 import (
@@ -167,7 +170,7 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 
 		if column.horizontal != "" {
 			if err := setAlignment(&colAlignment, "horizontal", column.horizontal); err != nil {
-				fmt.Println("[WRN]\tcolumnsWork[%d]: %s\n", column.id, err.Error())
+				fmt.Printf("[WRN]\tcolumnsWork[%d]: %s\n", column.id, err.Error())
 				break
 			}
 			// Стиль для текущего column
@@ -177,12 +180,12 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 			})
 			if err != nil {
 				//return err
-				fmt.Println("[WRN]\tcolumnsWork[%d]: %s\n", column.id, err.Error())
+				fmt.Printf("[WRN]\tcolumnsWork[%d]: %s\n", column.id, err.Error())
 				break
 			}
 
 			if err := xlsxFile.SetColStyle(sheetName, columnName, colStyle); err != nil {
-				fmt.Println("[WRN]\tcolumnsWork[%d]: %s\n", column.id, err.Error())
+				fmt.Printf("[WRN]\tcolumnsWork[%d]: %s\n", column.id, err.Error())
 				break
 			}
 		}
@@ -275,52 +278,26 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 					// Если в строке нашли текст
 					if strings.Contains(rowCell, find.text) {
 
-						// Если меняем стиль текста
-						if find.target == "text" {
-							// Разбиваем строку по найденому тексту
-							ss := strings.Split(rowCell, find.text)
-							var rtextall []excelize.RichTextRun // Общий итоговый текст ячейки
-
-							// Отформатированный найденный текст
-							var rfind excelize.RichTextRun
-							rfind.Text = find.text
-							rfind.Font = &findFont
-
-							// Собираем итоговый текст
-							for i := 0; i < len(ss); i++ {
-								rtext := excelize.RichTextRun{
-									Text: ss[i],
-									Font: &excelize.Font{},
-								}
-								if i == len(ss)-1 {
-									rtextall = append(rtextall, rtext)
-								} else {
-									rtextall = append(rtextall, rtext)
-									rtextall = append(rtextall, rfind)
-								}
-
-							}
+						switch find.target {
+						case "text": // Если меняем стиль текста
+							// Получаем отформатированный текст
+							rtextall := getFindRichText(rowCell, find.text, &findFont)
 
 							// Заносим текст в ячейку
 							if err := xlsxFile.SetCellRichText(sheetName, fmt.Sprintf("%s%d", columnName, n+1), rtextall); err != nil {
 								return err
 							}
-						}
-
-						// Если меняем стиль ячейки
-						if find.target == "cell" {
+						case "cell": // Если меняем стиль ячейки
 							// Устанавливаем стиль ячейки
 							if err := xlsxFile.SetCellStyle(sheetName, fmt.Sprintf("%s%d", columnName, n+1), fmt.Sprintf("%s%d", columnName, n+1), findStyle); err != nil {
 								return err
 							}
-						}
-
-						// Если меняем стиль строки
-						if find.target == "row" {
+						case "row": // Если меняем стиль строки
 							// Устанавливаем стиль строки
 							if err := xlsxFile.SetRowStyle(sheetName, n+1, n+1, findStyle); err != nil {
 								return err
 							}
+
 						}
 					}
 				} // for range col
@@ -482,11 +459,47 @@ func setAlignment(alignment *excelize.Alignment, param, value string) error {
 		case "":
 			break
 		default:
-			fmt.Println("Unknown value: %s", value)
+			fmt.Println("Unknown value: ", value)
 		}
 	default:
 		return fmt.Errorf("Unknown param: %s", param)
 	}
 
 	return nil
+}
+
+// getFindRichText Получить отформатированный текст
+// row: полный текст строки
+// find: текст который необходимо отформатировать
+// font: font для отформатированного текста
+func getFindRichText(row, find string, font *excelize.Font) []excelize.RichTextRun {
+	// Разбиваем строку по найденому тексту
+	ss := strings.Split(row, find)
+	var rtextall []excelize.RichTextRun // Общий итоговый текст ячейки
+
+	// Отформатированный найденный текст
+	var rfind excelize.RichTextRun
+	rfind.Text = find
+	rfind.Font = font
+
+	// Собираем итоговый текст
+	// Идем по всем элементам разбитого текста.
+	// Между элементами - наш отформатированный текст
+	for i := 0; i < len(ss); i++ {
+		// rtext - RichTextRun для текущего элемента
+		rtext := excelize.RichTextRun{
+			Text: ss[i],
+			Font: &excelize.Font{},
+		}
+		// Если последний элемент, то дабавляем только его
+		if i == len(ss)-1 {
+			rtextall = append(rtextall, rtext)
+		} else { // Иначе элемент + отформатированный текст
+			rtextall = append(rtextall, rtext)
+			rtextall = append(rtextall, rfind)
+		}
+
+	}
+
+	return rtextall
 }
