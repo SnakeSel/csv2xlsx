@@ -77,7 +77,7 @@ type _cfg struct {
 var cfg _cfg
 
 func usage() {
-	fmt.Println("csv2xlsx Конвертирование csv в xlsx с форматированием.")
+	fmt.Println("Конвертирование csv в xlsx с форматированием.")
 	fmt.Printf("версия: %s\n\n", version)
 	fmt.Println("csv2xlsx [command] <args>")
 	fmt.Println("command:")
@@ -157,9 +157,11 @@ func main() {
 		return
 	}
 
+	flag.Usage = usage
+
 	flag.Parse()
 	if *xlsxPath == "" || *csvPath == "" {
-		usage()
+		flag.Usage()
 		return
 	}
 
