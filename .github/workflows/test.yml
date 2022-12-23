@@ -17,10 +17,12 @@ jobs:
       uses: actions/setup-go@v3
       with:
         go-version: 'stable'
-    - run: go version
 
     - name: Verify dependencies
       run: go mod verify
+
+    - name: Create go.sum
+      run: go mod tidy
 
     - name: Run go vet
       run: go vet ./...
