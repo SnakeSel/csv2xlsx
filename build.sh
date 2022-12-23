@@ -1,9 +1,9 @@
 #!/bin/bash
 
 ## Colors
-#ClRed=$(tput setaf 1)
+ClRed=$(tput setaf 1)
 ClGreen=$(tput setaf 2)
-#ClYellow=$(tput setaf 3)
+ClYellow=$(tput setaf 3)
 #ClBlue=$(tput setaf 4)
 #ClMagenta=$(tput setaf 5)
 #ClCyan=$(tput setaf 6)
@@ -13,19 +13,41 @@ Clreset=$(tput sgr0) #сброс цвета на стандартный
 
 #####
 
-#linter="golangci-lint run -E gocritic -E stylecheck -E nestif -E revive -E govet"
-linter="golangci-lint run -E stylecheck -E revive -E govet"
-#linter="golangci-lint run"
-
-if ! $linter;then
+press_and_cont(){
     echo ""
     read -n 1 -s -r -p "Нажмите любую кнопку для продолжения"
     echo ""
+}
+
+
+# Run go vet
+if go vet ./...;then
+    echo " - go vet ${ClGreen}OK${Clreset}"
+else
+    echo -e "\n\n - go vet ${ClRed}ERROR${Clreset}"
+    press_and_cont
     exit 1
 fi
 
-echo " - Linter ${ClGreen}OK${Clreset}"
 
+# Run golangci-lint
+if which -a golangci-lint >/dev/null 2>&1; then
+    #linter="golangci-lint run -E gocritic -E stylecheck -E nestif -E revive -E govet"
+    linter="golangci-lint run -E stylecheck -E revive -E govet"
+    #linter="golangci-lint run"
+
+    if $linter;then
+        echo " - Linter ${ClGreen}OK${Clreset}"
+    else
+        echo -e "\n\n - Linter ${ClRed}ERROR${Clreset}"
+        press_and_cont
+        exit 1
+    fi
+else
+    echo " - Linter ${ClYellow}skipped${Clreset}"
+fi
+
+# Build
 version=$(date +%Y%m%d)
 
 if go build -ldflags "-s -w -X 'main.version=${version}'";then
@@ -36,9 +58,7 @@ if GOOS=windows GOARCH=amd64 go build -ldflags "-s -w -X 'main.version=${version
     echo " - Windows build ${ClGreen}OK${Clreset}"
 fi
 
-echo ""
-read -n 1 -s -r -p "Нажмите любую кнопку для продолжения"
-echo ""
+press_and_cont
 
 exit 0
 
