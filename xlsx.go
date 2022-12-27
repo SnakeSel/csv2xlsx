@@ -153,7 +153,7 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 		// Ширина столбцов
 		switch column.width {
 		case -1:
-			break
+			// Пропускаем
 		case 0:
 			if err := colWidthAuto(xlsxFile, sheetName, column.id-deleted); err != nil {
 				//return err
