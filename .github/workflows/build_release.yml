@@ -30,12 +30,9 @@ jobs:
     - name: Build Linux
       run: go build -ldflags "-s -w -X 'main.version=$(date +%Y%m%d)'" -v ./...
 
-    #- name: Tar files
-    #  run: tar -cvf my_files.tar /path/to/my/directory
-
     - uses: actions/upload-artifact@v3
       with:
-        name: Archive Linux
+        name: csv2xlsx Linux
         path: |
           csv2xlsx
           example.cfg
@@ -45,6 +42,7 @@ jobs:
 
     - uses: actions/upload-artifact@v3
       with:
-        name: Archive Windows
+        name: csv2xlsx Windows
         path: |
           csv2xlsx.exe
+          example.cfg
