@@ -100,11 +100,15 @@ replace = "to","2"
 ## Сборка из исходников
 #### Загружаем исходный код:
 ```sh
-$ git clone https://github.com/SnakeSel/csv2xlsx
+git clone https://github.com/SnakeSel/csv2xlsx
 ```
 #### Переходим в директорию проекта:
 ```sh
-$ cd csv2xlsx
+cd csv2xlsx
+```
+#### Устанавливаем зависимости:
+```sh
+go mod tidy
 ```
 #### Компилируем:
 ```sh

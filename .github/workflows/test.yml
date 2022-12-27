@@ -17,6 +17,7 @@ jobs:
       uses: actions/setup-go@v3
       with:
         go-version: 'stable'
+        cache: true
 
     - name: Verify dependencies
       run: go mod verify
@@ -35,6 +36,3 @@ jobs:
 
     - name: Run tests
       run: go test -race -vet=off ./...
-
-#    - name: Build
-#      run: go build -v ./...
