@@ -166,28 +166,16 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 		}
 
 		// Стиль столбца
+		colStyleIsDefault := true
 		colAlignment := cfg.style.alignment
 
 		if column.horizontal != "" {
+			colStyleIsDefault = false
 			if err := setAlignment(&colAlignment, "horizontal", column.horizontal); err != nil {
 				fmt.Printf("[WRN]\tcolumnsWork[%d]: %s\n", column.id, err.Error())
 				break
 			}
-			// Стиль для текущего column
-			colStyle, err := xlsxFile.NewStyle(&excelize.Style{
-				Alignment: &colAlignment,
-				Border:    cfg.style.border,
-			})
-			if err != nil {
-				//return err
-				fmt.Printf("[WRN]\tcolumnsWork[%d]: %s\n", column.id, err.Error())
-				break
-			}
 
-			if err := xlsxFile.SetColStyle(sheetName, columnName, colStyle); err != nil {
-				fmt.Printf("[WRN]\tcolumnsWork[%d]: %s\n", column.id, err.Error())
-				break
-			}
 		}
 
 		// Правила замены
@@ -299,6 +287,26 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 							}
 
 						}
+					} else {
+						// Применяем стиль столбца (если менялся)
+						if !colStyleIsDefault {
+
+							// Стиль для текущего column
+							colStyle, err := xlsxFile.NewStyle(&excelize.Style{
+								Alignment: &colAlignment,
+								Border:    cfg.style.border,
+							})
+							if err != nil {
+
+								fmt.Printf("[WRN]\tcolumnsWork[%d]: %s\n", column.id, err.Error())
+								break
+							}
+							// Устанавливаем стиль ячейки
+							if err := xlsxFile.SetCellStyle(sheetName, fmt.Sprintf("%s%d", columnName, n+1), fmt.Sprintf("%s%d", columnName, n+1), colStyle); err != nil {
+								return err
+							}
+						}
+
 					}
 				} // for range col
 			} // for range column.finds
@@ -324,8 +332,13 @@ func xlsxFormatSheet(xlsxFile *excelize.File, sheetName string) error {
 	}
 
 	// Создаем стиль всей таблицы
+
+	// Font
+	//Font := excelize.Font{}
+	//Font.Size = 8
+
 	wrapStyle, err := xlsxFile.NewStyle(&excelize.Style{
-		//Font:      &sheetFont,
+		//Font: &Font,
 		//Fill:      sheetFill,
 		Alignment: &cfg.style.alignment,
 		Border:    cfg.style.border,
