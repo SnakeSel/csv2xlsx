@@ -70,7 +70,6 @@ type _header struct {
 type _cfg struct {
 	sheetName string
 	title     _title
-	border    bool
 	header    _header
 	delimiter rune
 	cols      []_column
@@ -254,11 +253,35 @@ func loadCFG(iniFile string, cfg *_cfg) error {
 
 	// Общие настройки
 	cfg.sheetName = inifile.Section("").Key("sheet").MustString("")
-	cfg.border = inifile.Section("").Key("border").MustBool(false)
 	cfg.delimiter = delimiterToRune(inifile.Section("").Key("delimiter").MustString(`\t`))
 
+	// Добавить границу
+	if inifile.Section("").Key("border").MustBool(false) {
+		cfg.style.Border = []excelize.Border{
+			{
+				Type:  "left",
+				Color: "#000000",
+				Style: 2,
+			}, {
+				Type:  "top",
+				Color: "#000000",
+				Style: 2,
+			}, {
+				Type:  "bottom",
+				Color: "#000000",
+				Style: 2,
+			}, {
+				Type:  "right",
+				Color: "#000000",
+				Style: 2,
+			},
+		}
+	}
+
 	// Задать общий стиль
-	xlsxSetDefaultStyle(&cfg.style, cfg.border)
+
+	// Перенос текста
+	cfg.style.Alignment.WrapText = true
 
 	// Alignment
 	if err := setAlignment(&cfg.style.Alignment, "horizontal", inifile.Section("").Key("horizontal").MustString("")); err != nil {
@@ -272,6 +295,9 @@ func loadCFG(iniFile string, cfg *_cfg) error {
 	// Font
 	if inifile.Section("").Key("size").MustFloat64(0) != 0 {
 		cfg.style.Font.Size = inifile.Section("").Key("size").MustFloat64(0)
+	}
+	if inifile.Section("").Key("family").MustString("") != "" {
+		cfg.style.Font.Family = inifile.Section("").Key("family").MustString("")
 	}
 
 	// Секции

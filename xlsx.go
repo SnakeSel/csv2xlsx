@@ -13,37 +13,6 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
-// Задать общий стиль
-func xlsxSetDefaultStyle(style *_style, border bool) {
-	// выравнивание текста
-	style.Alignment.WrapText = true
-
-	//style.Font.Family = "Times New Roman"
-
-	// Добавить границу
-	if border {
-		style.Border = []excelize.Border{
-			{
-				Type:  "left",
-				Color: "#000000",
-				Style: 2,
-			}, {
-				Type:  "top",
-				Color: "#000000",
-				Style: 2,
-			}, {
-				Type:  "bottom",
-				Color: "#000000",
-				Style: 2,
-			}, {
-				Type:  "right",
-				Color: "#000000",
-				Style: 2,
-			},
-		}
-	}
-}
-
 // Добавить заголовок
 func xlsxAddTitle(xlsxFile *excelize.File, sheetName string, title _title, style _style) error {
 
