@@ -173,8 +173,8 @@ func xlsxSetColumnFormat(xlsxFile *excelize.File, sheetName string, colsParam []
 		if len(column.finds) > 0 || !colStyleIsDefault {
 
 			// Заполняем стили для всех finds
-			for findId, find := range column.finds {
-				column.finds[findId].style = newStyleFind(find, colStyleDefault)
+			for findID, find := range column.finds {
+				column.finds[findID].style = newStyleFind(find, colStyleDefault)
 			}
 
 			// перебираем строки

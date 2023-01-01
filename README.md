@@ -24,12 +24,14 @@ csv2xlsx -f input.csv -o output.xlsx
 csv2xlsx -c config.cfg -f input.csv -o output.xlsx
 ```
 ## Файл настроек
-##### Параметры вне секции ini файла:
+##### Параметры вне секции ini файла (применяются ко всему документу):
  - delimiter = Разделитель столбцов в csv (по умолчанию \t);
  - sheet = Имя листа (по умолчанию Sheet1);
  - border = Рисовать границу (1|0);
  - horizontal = Выравнивание текста в ячейках по горизонтали (left|center|right|fill|distributed|justify|centerContinuous);
  - vertical = Выравнивание текста в ячейках по вертикали (top|center|justify|distributed);
+ - size = Размер текста (число);
+ - family = Шрифт (строка)(По умолчанию: Calibri);
 
 #### [title] - Добавить шапку с текстом
  - enable = Добавлять шапку (1|0);
