@@ -77,8 +77,6 @@ type _cfg struct {
 	style     _style
 }
 
-var cfg _cfg
-
 func usage() {
 	fmt.Println("Конвертирование csv в xlsx с форматированием.")
 	fmt.Printf("версия: %s\n\n", version)
@@ -168,9 +166,11 @@ func main() {
 		return
 	}
 
+	cfg := new(_cfg)
+
 	// Загрузка настроек
 	if *cfgPatch != "" {
-		if err := loadCFG(*cfgPatch); err != nil {
+		if err := loadCFG(*cfgPatch, cfg); err != nil {
 			fmt.Println(err.Error())
 		}
 	} else {
@@ -189,8 +189,13 @@ func main() {
 		sheetName := xlsxFile.GetSheetName(0)
 		if sheetName != "" {
 
-			// задаем форматирование
-			if err := xlsxFormatSheet(xlsxFile, sheetName); err != nil {
+			// задаем форматирование всей таблице
+			if err := xlsxSetTableStyle(xlsxFile, sheetName, cfg.style); err != nil {
+				fmt.Println(err.Error())
+			}
+
+			// обрабатываем параметры столбцов
+			if err := xlsxSetColumnFormat(xlsxFile, sheetName, cfg.cols, cfg.style); err != nil {
 				fmt.Println(err.Error())
 			}
 
@@ -208,7 +213,7 @@ func main() {
 					return
 				}
 				// Устанавливаем стиль заголовка
-				if err := xlsxSetHeader(xlsxFile, sheetName, fmt.Sprintf("A%d", cfg.header.row), fmt.Sprintf("%s%d", lastColumn, cfg.header.row)); err != nil {
+				if err := xlsxSetHeader(xlsxFile, sheetName, fmt.Sprintf("A%d", cfg.header.row), fmt.Sprintf("%s%d", lastColumn, cfg.header.row), cfg.header, cfg.style); err != nil {
 					fmt.Println(err.Error())
 					return
 				}
@@ -216,7 +221,7 @@ func main() {
 
 			// Добавить Title
 			if cfg.title.enable {
-				if err := xlsxAddTitle(xlsxFile, sheetName); err != nil {
+				if err := xlsxAddTitle(xlsxFile, sheetName, cfg.title, cfg.style); err != nil {
 					fmt.Println(err.Error())
 				}
 			}
@@ -241,7 +246,7 @@ func main() {
 }
 
 // Загрузка настроек из ini в переменную cfg
-func loadCFG(iniFile string) error {
+func loadCFG(iniFile string, cfg *_cfg) error {
 	inifile, err := ini.ShadowLoad(iniFile)
 	if err != nil {
 		return err

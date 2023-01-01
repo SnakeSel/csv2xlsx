@@ -45,12 +45,13 @@ func xlsxSetDefaultStyle(style *_style, border bool) {
 }
 
 // Добавить заголовок
-func xlsxAddTitle(xlsxFile *excelize.File, sheetName string) error {
+func xlsxAddTitle(xlsxFile *excelize.File, sheetName string, title _title, style _style) error {
+
 	var err error
-	text := cfg.title.text
+
 	// Если text не указан, берем из A1 и строка 1 считается шапкой
-	if text == "" {
-		text, err = xlsxFile.GetCellValue(sheetName, "A1")
+	if title.text == "" {
+		title.text, err = xlsxFile.GetCellValue(sheetName, "A1")
 		if err != nil {
 			return err
 		}
@@ -62,46 +63,38 @@ func xlsxAddTitle(xlsxFile *excelize.File, sheetName string) error {
 	}
 
 	// Добавляем текст
-	if err := xlsxFile.SetCellStr(sheetName, "A1", text); err != nil {
+	if err := xlsxFile.SetCellStr(sheetName, "A1", title.text); err != nil {
 		return err
 	}
-	// Font
-	Font := excelize.Font{}
-	Font.Bold = cfg.title.bold
 
-	if len(cfg.title.color) == 6 {
-		Font.Color = cfg.title.color
+	// Формируем стиль
+	style.Font.Bold = title.bold
+
+	if len(title.color) == 6 {
+		style.Font.Color = title.color
 	}
 	// Font.Family= "Times New Roman"
-	if cfg.title.size != 0 {
-		Font.Size = cfg.title.size
+	if title.size != 0 {
+		style.Font.Size = title.size
 	}
 
-	// Fill
-	Fill := excelize.Fill{}
-
-	if len(cfg.title.background) == 6 {
-		Fill.Type = "pattern"
-		Fill.Pattern = 1
-		Fill.Color = append(Fill.Color, cfg.title.background)
+	if len(title.background) == 6 {
+		style.Fill.Type = "pattern"
+		style.Fill.Pattern = 1
+		style.Fill.Color = append(style.Fill.Color, title.background)
 	}
 	// Alignment
-	Alignment := cfg.style.Alignment //параметры выравнивания как в документе
-	Alignment.Horizontal = "center"
+	style.Alignment.Horizontal = "center"
+	style.Alignment.Vertical = "center"
 
 	// Создаем стиль
-	Style, err := xlsxFile.NewStyle(&excelize.Style{
-		Font:      &Font,
-		Fill:      Fill,
-		Border:    cfg.style.Border, //параметры границы как в документе
-		Alignment: &Alignment,
-	})
+	styleID, err := xlsxNewStyleID(xlsxFile, style)
 	if err != nil {
 		return err
 	}
 
 	// Применяем стиль
-	if err := xlsxFile.SetCellStyle(sheetName, "A1", "A1", Style); err != nil {
+	if err := xlsxFile.SetCellStyle(sheetName, "A1", "A1", styleID); err != nil {
 		return err
 	}
 
@@ -124,7 +117,7 @@ func xlsxAddTitle(xlsxFile *excelize.File, sheetName string) error {
 }
 
 // Обрабатываем параметры столбцов
-func columnsWork(xlsxFile *excelize.File, sheetName string) error {
+func xlsxSetColumnFormat(xlsxFile *excelize.File, sheetName string, colsParam []_column, style _style) error {
 	cols, err := xlsxFile.GetCols(sheetName)
 	if err != nil {
 		return err
@@ -132,7 +125,7 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 
 	deleted := 0
 
-	for _, column := range cfg.cols {
+	for _, column := range colsParam {
 		// Удаляем столбцы
 		if column.deleted {
 			name, err := excelize.ColumnNumberToName(column.id - deleted)
@@ -169,12 +162,7 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 
 		// Базовый стиль столбца
 		colStyleIsDefault := true
-		colStyleDefault := _style{
-			Font:      cfg.style.Font,
-			Fill:      cfg.style.Fill,
-			Border:    cfg.style.Border,
-			Alignment: cfg.style.Alignment,
-		}
+		colStyleDefault := style
 
 		if column.horizontal != "" {
 			colStyleIsDefault = false
@@ -185,14 +173,8 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 
 		}
 		// Стиль для текущего column
-		colStyleID, err := xlsxFile.NewStyle(&excelize.Style{
-			Alignment: &colStyleDefault.Alignment,
-			Font:      &colStyleDefault.Font,
-			Fill:      colStyleDefault.Fill,
-			Border:    colStyleDefault.Border,
-		})
+		colStyleID, err := xlsxNewStyleID(xlsxFile, colStyleDefault)
 		if err != nil {
-
 			fmt.Printf("[WRN]\tcolumnsWork[%d]: %s\n", column.id, err.Error())
 			break
 		}
@@ -244,12 +226,7 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 					if strings.Contains(rowCell, find.text) {
 
 						// Создаем стиль документа
-						findStyleID, err := xlsxFile.NewStyle(&excelize.Style{
-							Font:      &find.style.Font,
-							Fill:      find.style.Fill,
-							Border:    find.style.Border,
-							Alignment: &find.style.Alignment,
-						})
+						findStyleID, err := xlsxNewStyleID(xlsxFile, find.style)
 						if err != nil {
 							return err
 						}
@@ -288,10 +265,10 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 	return nil
 }
 
-// задаем форматирование
-func xlsxFormatSheet(xlsxFile *excelize.File, sheetName string) error {
+// задаем форматирование всей таблице
+func xlsxSetTableStyle(xlsxFile *excelize.File, sheetName string, style _style) error {
 
-	// Получаем данные о столбцах (могли измениться в columnsWork)
+	// Получаем данные о столбцах
 	cols, err := xlsxFile.GetCols(sheetName)
 	if err != nil {
 		return err
@@ -303,24 +280,13 @@ func xlsxFormatSheet(xlsxFile *excelize.File, sheetName string) error {
 	}
 
 	// Создаем стиль всей таблицы
-
-	wrapStyle, err := xlsxFile.NewStyle(&excelize.Style{
-		Font: &cfg.style.Font,
-		//Fill:      sheetFill,
-		Alignment: &cfg.style.Alignment,
-		Border:    cfg.style.Border,
-	})
+	wrapStyle, err := xlsxNewStyleID(xlsxFile, style)
 	if err != nil {
 		return err
 	}
 
 	// Применяем стиль все таблицы
 	if err := xlsxFile.SetCellStyle(sheetName, "A1", fmt.Sprintf("%s%d", lastColumn, len(cols[0])), wrapStyle); err != nil {
-		return err
-	}
-
-	// Обрабатываем параметры столбцов
-	if err = columnsWork(xlsxFile, sheetName); err != nil {
 		return err
 	}
 
@@ -369,49 +335,39 @@ func colWidthAuto(xlsx *excelize.File, sheetName string, colNum int) error {
 }
 
 // Задает стиль заголовка
-func xlsxSetHeader(xlsxFile *excelize.File, sheetName, startCell, endCell string) error {
+func xlsxSetHeader(xlsxFile *excelize.File, sheetName, startCell, endCell string, header _header, style _style) error {
 
 	// Font
-	headerFont := excelize.Font{}
-	headerFont.Bold = cfg.header.bold
+	style.Font.Bold = header.bold
 
-	if len(cfg.header.color) == 6 {
-		headerFont.Color = cfg.header.color
+	if len(header.color) == 6 {
+		style.Font.Color = header.color
 	}
 	//headerFont.Family= "Times New Roman"
-	if cfg.header.size != 0 {
-		headerFont.Size = cfg.header.size
+	if header.size != 0 {
+		style.Font.Size = header.size
 	}
 
 	// Fill
-	headerFill := excelize.Fill{}
-
-	if len(cfg.header.background) == 6 {
-		headerFill.Type = "pattern"
-		headerFill.Pattern = 1
-		headerFill.Color = append(headerFill.Color, cfg.header.background)
+	if len(header.background) == 6 {
+		style.Fill.Type = "pattern"
+		style.Fill.Pattern = 1
+		style.Fill.Color = append(style.Fill.Color, header.background)
 	}
 
 	// Alignment
-	headerAlignment := cfg.style.Alignment //параметры выравнивания как в документе
-
-	if err := setAlignment(&headerAlignment, "horizontal", cfg.header.horizontal); err != nil {
+	if err := setAlignment(&style.Alignment, "horizontal", header.horizontal); err != nil {
 		fmt.Printf("[WRN]\txlsxSetHeader: %s\n", err.Error())
 	}
 
 	// Создаем стиль заголовка
-	headStyle, err := xlsxFile.NewStyle(&excelize.Style{
-		Font:      &headerFont,
-		Fill:      headerFill,
-		Border:    cfg.style.Border, //параметры границы как в документе
-		Alignment: &headerAlignment,
-	})
+	headStyleID, err := xlsxNewStyleID(xlsxFile, style)
 	if err != nil {
 		return err
 	}
 
 	// Применяем стиль заголовка
-	if err := xlsxFile.SetCellStyle(sheetName, startCell, endCell, headStyle); err != nil {
+	if err := xlsxFile.SetCellStyle(sheetName, startCell, endCell, headStyleID); err != nil {
 		return err
 	}
 
@@ -529,4 +485,16 @@ func newStyleFind(find _find, defStyle _style) _style {
 	} // for range find.actions
 
 	return findStyle
+}
+
+// Создаем новый стиль документа
+func xlsxNewStyleID(xlsxFile *excelize.File, style _style) (int, error) {
+
+	return xlsxFile.NewStyle(&excelize.Style{
+		Alignment: &style.Alignment,
+		Font:      &style.Font,
+		Fill:      style.Fill,
+		Border:    style.Border,
+	})
+
 }
