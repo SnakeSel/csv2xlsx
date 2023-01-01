@@ -36,9 +36,8 @@ jobs:
 
     - name: Run tests
       run: go test -race -vet=off ./...
- 
- build:
-   - name: Build Linux
+
+    - name: Build Linux
       run: go build -ldflags "-s -w -X 'main.version=$(date +%Y%m%d)'" -v ./...
 
     - uses: actions/upload-artifact@v3
