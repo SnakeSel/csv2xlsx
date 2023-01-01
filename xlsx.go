@@ -14,13 +14,15 @@ import (
 )
 
 // Задать общий стиль
-func xlsxSetDefaultStyle() {
+func xlsxSetDefaultStyle(style *_style, border bool) {
 	// выравнивание текста
-	cfg.style.alignment.WrapText = true
+	style.Alignment.WrapText = true
+
+	//style.Font.Family = "Times New Roman"
 
 	// Добавить границу
-	if cfg.border {
-		cfg.style.border = []excelize.Border{
+	if border {
+		style.Border = []excelize.Border{
 			{
 				Type:  "left",
 				Color: "#000000",
@@ -84,14 +86,14 @@ func xlsxAddTitle(xlsxFile *excelize.File, sheetName string) error {
 		Fill.Color = append(Fill.Color, cfg.title.background)
 	}
 	// Alignment
-	Alignment := cfg.style.alignment //параметры выравнивания как в документе
+	Alignment := cfg.style.Alignment //параметры выравнивания как в документе
 	Alignment.Horizontal = "center"
 
 	// Создаем стиль
 	Style, err := xlsxFile.NewStyle(&excelize.Style{
 		Font:      &Font,
 		Fill:      Fill,
-		Border:    cfg.style.border, //параметры границы как в документе
+		Border:    cfg.style.Border, //параметры границы как в документе
 		Alignment: &Alignment,
 	})
 	if err != nil {
@@ -165,17 +167,34 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 			}
 		}
 
-		// Стиль столбца
+		// Базовый стиль столбца
 		colStyleIsDefault := true
-		colAlignment := cfg.style.alignment
+		colStyleDefault := _style{
+			Font:      cfg.style.Font,
+			Fill:      cfg.style.Fill,
+			Border:    cfg.style.Border,
+			Alignment: cfg.style.Alignment,
+		}
 
 		if column.horizontal != "" {
 			colStyleIsDefault = false
-			if err := setAlignment(&colAlignment, "horizontal", column.horizontal); err != nil {
+			if err := setAlignment(&colStyleDefault.Alignment, "horizontal", column.horizontal); err != nil {
 				fmt.Printf("[WRN]\tcolumnsWork[%d]: %s\n", column.id, err.Error())
 				break
 			}
 
+		}
+		// Стиль для текущего column
+		colStyleID, err := xlsxFile.NewStyle(&excelize.Style{
+			Alignment: &colStyleDefault.Alignment,
+			Font:      &colStyleDefault.Font,
+			Fill:      colStyleDefault.Fill,
+			Border:    colStyleDefault.Border,
+		})
+		if err != nil {
+
+			fmt.Printf("[WRN]\tcolumnsWork[%d]: %s\n", column.id, err.Error())
+			break
 		}
 
 		// Правила замены
@@ -200,76 +219,45 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 		}
 
 		// Правила поиска
-		if len(column.finds) > 0 {
-			for _, find := range column.finds {
+		if len(column.finds) > 0 || !colStyleIsDefault {
 
-				rows := cols[column.id-1]
+			// Заполняем стили для всех finds
+			for findId, find := range column.finds {
+				column.finds[findId].style = newStyleFind(find, colStyleDefault)
+			}
 
-				// Готовим общие настройки стилей
-				findFont := excelize.Font{}
-				findFill := excelize.Fill{}
-				findAlignment := colAlignment
+			// перебираем строки
+			rows := cols[column.id-1]
+			for n, rowCell := range rows {
 
-				for _, action := range find.actions {
-					switch action.name {
-					case "bold":
-						findFont.Bold = true
-					case "size":
-						size, err := strconv.Atoi(action.value)
-						if err == nil {
-							findFont.Size = float64(size)
-						} else {
-							fmt.Printf("[WRN]\tcolumnsWork|find|%s: unknown size: %s\n", find.text, action.value)
-						}
-					case "color":
-						if len(action.value) == 6 {
-							findFont.Color = action.value
-						} else {
-							fmt.Printf("[WRN]\tcolumnsWork|find|%s: unknown color: %s\n", find.text, action.value)
-						}
-					case "background":
-						if len(action.value) == 6 {
-							findFill.Type = "pattern"
-							findFill.Pattern = 1
-							findFill.Color = append(findFill.Color, action.value)
-						} else {
-							fmt.Printf("[WRN]\tcolumnsWork|find|%s: unknown background: %s\n", find.text, action.value)
-						}
-					case "horizontal":
-						if err := setAlignment(&findAlignment, "horizontal", action.value); err != nil {
-							fmt.Printf("[WRN]\tcolumnsWork|find|%s: %s\n", find.text, err.Error())
-						}
-
-					case "vertical":
-						if err := setAlignment(&findAlignment, "vertical", action.value); err != nil {
-							fmt.Printf("[WRN]\tcolumnsWork|find|%s: %s\n", find.text, err.Error())
-						}
-
-					default:
-						fmt.Printf("[WRN]\tcolumnsWork|find|%s: unknown action: %s\n", find.text, action.name)
-					} // switch
-				} // for range find.actions
-
-				// Стиль для текущего find
-				findStyle, err := xlsxFile.NewStyle(&excelize.Style{
-					Font:      &findFont,
-					Fill:      findFill,
-					Alignment: &findAlignment,
-					Border:    cfg.style.border,
-				})
-				if err != nil {
-					return err
+				// Применяем стиль столбца (если менялся)
+				if !colStyleIsDefault {
+					// Устанавливаем стиль ячейки
+					if err := xlsxFile.SetCellStyle(sheetName, fmt.Sprintf("%s%d", columnName, n+1), fmt.Sprintf("%s%d", columnName, n+1), colStyleID); err != nil {
+						return err
+					}
 				}
 
-				// перебираем строки
-				for n, rowCell := range rows {
+				for _, find := range column.finds {
+
 					// Если в строке нашли текст
 					if strings.Contains(rowCell, find.text) {
+
+						// Создаем стиль документа
+						findStyleID, err := xlsxFile.NewStyle(&excelize.Style{
+							Font:      &find.style.Font,
+							Fill:      find.style.Fill,
+							Border:    find.style.Border,
+							Alignment: &find.style.Alignment,
+						})
+						if err != nil {
+							return err
+						}
 
 						switch find.target {
 						case "text": // Если меняем стиль текста
 							// Получаем отформатированный текст
-							rtextall := getFindRichText(rowCell, find.text, &findFont)
+							rtextall := getFindRichText(rowCell, find.text, &find.style.Font)
 
 							// Заносим текст в ячейку
 							if err := xlsxFile.SetCellRichText(sheetName, fmt.Sprintf("%s%d", columnName, n+1), rtextall); err != nil {
@@ -277,39 +265,22 @@ func columnsWork(xlsxFile *excelize.File, sheetName string) error {
 							}
 						case "cell": // Если меняем стиль ячейки
 							// Устанавливаем стиль ячейки
-							if err := xlsxFile.SetCellStyle(sheetName, fmt.Sprintf("%s%d", columnName, n+1), fmt.Sprintf("%s%d", columnName, n+1), findStyle); err != nil {
+							if err := xlsxFile.SetCellStyle(sheetName, fmt.Sprintf("%s%d", columnName, n+1), fmt.Sprintf("%s%d", columnName, n+1), findStyleID); err != nil {
 								return err
 							}
 						case "row": // Если меняем стиль строки
+
 							// Устанавливаем стиль строки
-							if err := xlsxFile.SetRowStyle(sheetName, n+1, n+1, findStyle); err != nil {
+							if err := xlsxFile.SetRowStyle(sheetName, n+1, n+1, findStyleID); err != nil {
 								return err
 							}
 
 						}
-					} else {
-						// Применяем стиль столбца (если менялся)
-						if !colStyleIsDefault {
-
-							// Стиль для текущего column
-							colStyle, err := xlsxFile.NewStyle(&excelize.Style{
-								Alignment: &colAlignment,
-								Border:    cfg.style.border,
-							})
-							if err != nil {
-
-								fmt.Printf("[WRN]\tcolumnsWork[%d]: %s\n", column.id, err.Error())
-								break
-							}
-							// Устанавливаем стиль ячейки
-							if err := xlsxFile.SetCellStyle(sheetName, fmt.Sprintf("%s%d", columnName, n+1), fmt.Sprintf("%s%d", columnName, n+1), colStyle); err != nil {
-								return err
-							}
-						}
-
 					}
-				} // for range col
-			} // for range column.finds
+				} // for finds
+
+			} // for range col
+
 		} // if column.finds
 
 	}
@@ -333,15 +304,11 @@ func xlsxFormatSheet(xlsxFile *excelize.File, sheetName string) error {
 
 	// Создаем стиль всей таблицы
 
-	// Font
-	//Font := excelize.Font{}
-	//Font.Size = 8
-
 	wrapStyle, err := xlsxFile.NewStyle(&excelize.Style{
-		//Font: &Font,
+		Font: &cfg.style.Font,
 		//Fill:      sheetFill,
-		Alignment: &cfg.style.alignment,
-		Border:    cfg.style.border,
+		Alignment: &cfg.style.Alignment,
+		Border:    cfg.style.Border,
 	})
 	if err != nil {
 		return err
@@ -426,7 +393,7 @@ func xlsxSetHeader(xlsxFile *excelize.File, sheetName, startCell, endCell string
 	}
 
 	// Alignment
-	headerAlignment := cfg.style.alignment //параметры выравнивания как в документе
+	headerAlignment := cfg.style.Alignment //параметры выравнивания как в документе
 
 	if err := setAlignment(&headerAlignment, "horizontal", cfg.header.horizontal); err != nil {
 		fmt.Printf("[WRN]\txlsxSetHeader: %s\n", err.Error())
@@ -436,7 +403,7 @@ func xlsxSetHeader(xlsxFile *excelize.File, sheetName, startCell, endCell string
 	headStyle, err := xlsxFile.NewStyle(&excelize.Style{
 		Font:      &headerFont,
 		Fill:      headerFill,
-		Border:    cfg.style.border, //параметры границы как в документе
+		Border:    cfg.style.Border, //параметры границы как в документе
 		Alignment: &headerAlignment,
 	})
 	if err != nil {
@@ -515,4 +482,51 @@ func getFindRichText(row, find string, font *excelize.Font) []excelize.RichTextR
 	}
 
 	return rtextall
+}
+
+// Создаем стиль для find
+func newStyleFind(find _find, defStyle _style) _style {
+	findStyle := defStyle
+
+	for _, action := range find.actions {
+		switch action.name {
+		case "bold":
+			findStyle.Font.Bold = true
+		case "size":
+			size, err := strconv.Atoi(action.value)
+			if err == nil {
+				findStyle.Font.Size = float64(size)
+			} else {
+				fmt.Printf("[WRN]\tcolumnsWork|find|%s: unknown size: %s\n", find.text, action.value)
+			}
+		case "color":
+			if len(action.value) == 6 {
+				findStyle.Font.Color = action.value
+			} else {
+				fmt.Printf("[WRN]\tcolumnsWork|find|%s: unknown color: %s\n", find.text, action.value)
+			}
+		case "background":
+			if len(action.value) == 6 {
+				findStyle.Fill.Type = "pattern"
+				findStyle.Fill.Pattern = 1
+				findStyle.Fill.Color = append(findStyle.Fill.Color, action.value)
+			} else {
+				fmt.Printf("[WRN]\tcolumnsWork|find|%s: unknown background: %s\n", find.text, action.value)
+			}
+		case "horizontal":
+			if err := setAlignment(&findStyle.Alignment, "horizontal", action.value); err != nil {
+				fmt.Printf("[WRN]\tcolumnsWork|find|%s: %s\n", find.text, err.Error())
+			}
+
+		case "vertical":
+			if err := setAlignment(&findStyle.Alignment, "vertical", action.value); err != nil {
+				fmt.Printf("[WRN]\tcolumnsWork|find|%s: %s\n", find.text, err.Error())
+			}
+
+		default:
+			fmt.Printf("[WRN]\tcolumnsWork|find|%s: unknown action: %s\n", find.text, action.name)
+		} // switch
+	} // for range find.actions
+
+	return findStyle
 }

@@ -30,6 +30,7 @@ type _find struct {
 	text    string
 	actions []_action
 	target  string
+	style   _style
 }
 
 type _column struct {
@@ -43,8 +44,10 @@ type _column struct {
 }
 
 type _style struct {
-	alignment excelize.Alignment
-	border    []excelize.Border
+	Alignment excelize.Alignment
+	Border    []excelize.Border
+	Font      excelize.Font
+	Fill      excelize.Fill
 }
 
 type _title struct {
@@ -250,15 +253,20 @@ func loadCFG(iniFile string) error {
 	cfg.delimiter = delimiterToRune(inifile.Section("").Key("delimiter").MustString(`\t`))
 
 	// Задать общий стиль
-	xlsxSetDefaultStyle()
+	xlsxSetDefaultStyle(&cfg.style, cfg.border)
 
 	// Alignment
-	if err := setAlignment(&cfg.style.alignment, "horizontal", inifile.Section("").Key("horizontal").MustString("")); err != nil {
+	if err := setAlignment(&cfg.style.Alignment, "horizontal", inifile.Section("").Key("horizontal").MustString("")); err != nil {
 		fmt.Println("[WRN]\tloadCFG: horizontal: ", err.Error())
 	}
 
-	if err := setAlignment(&cfg.style.alignment, "vertical", inifile.Section("").Key("vertical").MustString("")); err != nil {
+	if err := setAlignment(&cfg.style.Alignment, "vertical", inifile.Section("").Key("vertical").MustString("")); err != nil {
 		fmt.Println("[WRN]\tloadCFG: vertical: ", err.Error())
+	}
+
+	// Font
+	if inifile.Section("").Key("size").MustFloat64(0) != 0 {
+		cfg.style.Font.Size = inifile.Section("").Key("size").MustFloat64(0)
 	}
 
 	// Секции
