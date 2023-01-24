@@ -169,65 +169,70 @@ func xlsxSetColumnFormat(xlsxFile *excelize.File, sheetName string, colsParam []
 			}
 		}
 
-		// Правила поиска
+		// Правила поиска или изменение стиля
 		if len(column.finds) > 0 || !colStyleIsDefault {
-
 			// Заполняем стили для всех finds
 			for findID, find := range column.finds {
 				column.finds[findID].style = newStyleFind(find, colStyleDefault)
+				column.finds[findID].styleID, err = xlsxNewStyleID(xlsxFile, column.finds[findID].style)
+				if err != nil {
+					fmt.Println(err.Error())
+					break
+				}
 			}
 
-			// перебираем строки
-			rows := cols[column.id-1]
-			for n, rowCell := range rows {
+			if err := colApplyFind(xlsxFile, sheetName, columnName, column, cols[column.id-1], colStyleIsDefault, colStyleID); err != nil {
+				return err
+			}
+		}
 
-				// Применяем стиль столбца (если менялся)
-				if !colStyleIsDefault {
-					// Устанавливаем стиль ячейки
-					if err := xlsxFile.SetCellStyle(sheetName, fmt.Sprintf("%s%d", columnName, n+1), fmt.Sprintf("%s%d", columnName, n+1), colStyleID); err != nil {
+	}
+
+	return nil
+}
+
+func colApplyFind(xlsxFile *excelize.File, sheetName string, columnName string, column _column, colRows []string, colStyleIsDefault bool, colStyleID int) error {
+
+	// перебираем строки
+	for n, rowCell := range colRows {
+
+		// Применяем стиль столбца (если менялся)
+		if !colStyleIsDefault {
+			// Устанавливаем стиль ячейки
+			if err := xlsxFile.SetCellStyle(sheetName, fmt.Sprintf("%s%d", columnName, n+1), fmt.Sprintf("%s%d", columnName, n+1), colStyleID); err != nil {
+				return err
+			}
+		}
+
+		for _, find := range column.finds {
+
+			// Если в строке нашли текст
+			if strings.Contains(rowCell, find.text) {
+
+				switch find.target {
+				case "text": // Если меняем стиль текста
+					// Получаем отформатированный текст
+					rtextall := getFindRichText(rowCell, find.text, &find.style.Font)
+
+					// Заносим текст в ячейку
+					if err := xlsxFile.SetCellRichText(sheetName, fmt.Sprintf("%s%d", columnName, n+1), rtextall); err != nil {
 						return err
 					}
-				}
-
-				for _, find := range column.finds {
-
-					// Если в строке нашли текст
-					if strings.Contains(rowCell, find.text) {
-
-						// Создаем стиль документа
-						findStyleID, err := xlsxNewStyleID(xlsxFile, find.style)
-						if err != nil {
-							return err
-						}
-
-						switch find.target {
-						case "text": // Если меняем стиль текста
-							// Получаем отформатированный текст
-							rtextall := getFindRichText(rowCell, find.text, &find.style.Font)
-
-							// Заносим текст в ячейку
-							if err := xlsxFile.SetCellRichText(sheetName, fmt.Sprintf("%s%d", columnName, n+1), rtextall); err != nil {
-								return err
-							}
-						case "cell": // Если меняем стиль ячейки
-							// Устанавливаем стиль ячейки
-							if err := xlsxFile.SetCellStyle(sheetName, fmt.Sprintf("%s%d", columnName, n+1), fmt.Sprintf("%s%d", columnName, n+1), findStyleID); err != nil {
-								return err
-							}
-						case "row": // Если меняем стиль строки
-
-							// Устанавливаем стиль строки
-							if err := xlsxFile.SetRowStyle(sheetName, n+1, n+1, findStyleID); err != nil {
-								return err
-							}
-
-						}
+				case "cell": // Если меняем стиль ячейки
+					// Устанавливаем стиль ячейки
+					if err := xlsxFile.SetCellStyle(sheetName, fmt.Sprintf("%s%d", columnName, n+1), fmt.Sprintf("%s%d", columnName, n+1), find.styleID); err != nil {
+						return err
 					}
-				} // for finds
+				case "row": // Если меняем стиль строки
 
-			} // for range col
+					// Устанавливаем стиль строки
+					if err := xlsxFile.SetRowStyle(sheetName, n+1, n+1, find.styleID); err != nil {
+						return err
+					}
 
-		} // if column.finds
+				}
+			}
+		}
 
 	}
 

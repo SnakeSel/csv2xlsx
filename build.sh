@@ -59,12 +59,14 @@ if GOOS=windows GOARCH=amd64 go build -ldflags "-s -w -X 'main.version=${version
 fi
 
 # Create archive
+mkdir -p "./build"
+
 chmod +x csv2xlsx
-if tar -caf "csv2xlsx-${version}_linux.tar.gz" csv2xlsx example.cfg;then
+if tar -caf "./build/csv2xlsx-${version}_linux.tar.gz" csv2xlsx example.cfg ;then
     echo " - Linux archive create ${ClGreen}OK${Clreset}"
 fi
 
-if zip -r "csv2xlsx-${version}_windows.zip" csv2xlsx.exe example.cfg;then
+if zip -r "./build/csv2xlsx-${version}_windows.zip" csv2xlsx.exe example.cfg;then
     echo " - Windows archive create ${ClGreen}OK${Clreset}"
 fi
 

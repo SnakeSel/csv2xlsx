@@ -31,6 +31,7 @@ type _find struct {
 	actions []_action
 	target  string
 	style   _style
+	styleID int
 }
 
 type _column struct {
@@ -176,6 +177,7 @@ func main() {
 		cfg.delimiter = delimiterToRune(*delimiter)
 	}
 
+	// Генерируем xlsx
 	xlsxFile, err := generateXLSXFromCSV(*csvPath, cfg.delimiter)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -184,54 +186,8 @@ func main() {
 
 	// Если есть конфиг, применяем настройки
 	if *cfgPatch != "" {
-		// Получаем название листа
-		sheetName := xlsxFile.GetSheetName(0)
-		if sheetName != "" {
-
-			// задаем форматирование всей таблице
-			if err := xlsxSetTableStyle(xlsxFile, sheetName, cfg.style); err != nil {
-				fmt.Println(err.Error())
-			}
-
-			// обрабатываем параметры столбцов
-			if err := xlsxSetColumnFormat(xlsxFile, sheetName, cfg.cols, cfg.style); err != nil {
-				fmt.Println(err.Error())
-			}
-
-			// Стиль заголовка
-			if cfg.header.enable {
-				// Получаем последний столбец
-				cols, err := xlsxFile.GetCols(sheetName)
-				if err != nil {
-					fmt.Println(err.Error())
-					return
-				}
-				lastColumn, err := excelize.ColumnNumberToName(len(cols))
-				if err != nil {
-					fmt.Println(err.Error())
-					return
-				}
-				// Устанавливаем стиль заголовка
-				if err := xlsxSetHeader(xlsxFile, sheetName, fmt.Sprintf("A%d", cfg.header.row), fmt.Sprintf("%s%d", lastColumn, cfg.header.row), cfg.header, cfg.style); err != nil {
-					fmt.Println(err.Error())
-					return
-				}
-			}
-
-			// Добавить Title
-			if cfg.title.enable {
-				if err := xlsxAddTitle(xlsxFile, sheetName, cfg.title, cfg.style); err != nil {
-					fmt.Println(err.Error())
-				}
-			}
-
-			// переименовываем лист
-			if cfg.sheetName != "" {
-				xlsxFile.SetSheetName(sheetName, cfg.sheetName)
-			}
-
-		} else {
-			fmt.Println(fmt.Errorf("sheet not found").Error())
+		if err := applyFormatting(xlsxFile, cfg); err != nil {
+			fmt.Println(err.Error())
 		}
 	}
 
@@ -409,6 +365,57 @@ func delimiterToRune(delimiter string) rune {
 	}
 
 	return rune('\t')
+}
+
+// Применяем настройки форматирования
+func applyFormatting(xlsxFile *excelize.File, cfg *_cfg) error {
+
+	// Получаем название листа
+	sheetName := xlsxFile.GetSheetName(0)
+	if sheetName == "" {
+		return fmt.Errorf("sheet not found")
+	}
+
+	// задаем форматирование всей таблице
+	if err := xlsxSetTableStyle(xlsxFile, sheetName, cfg.style); err != nil {
+		return err
+	}
+
+	// обрабатываем параметры столбцов
+	if err := xlsxSetColumnFormat(xlsxFile, sheetName, cfg.cols, cfg.style); err != nil {
+		return err
+	}
+
+	// Стиль заголовка
+	if cfg.header.enable {
+		// Получаем последний столбец
+		cols, err := xlsxFile.GetCols(sheetName)
+		if err != nil {
+			return err
+		}
+		lastColumn, err := excelize.ColumnNumberToName(len(cols))
+		if err != nil {
+			return err
+		}
+		// Устанавливаем стиль заголовка
+		if err := xlsxSetHeader(xlsxFile, sheetName, fmt.Sprintf("A%d", cfg.header.row), fmt.Sprintf("%s%d", lastColumn, cfg.header.row), cfg.header, cfg.style); err != nil {
+			return err
+		}
+	}
+
+	// Добавить Title
+	if cfg.title.enable {
+		if err := xlsxAddTitle(xlsxFile, sheetName, cfg.title, cfg.style); err != nil {
+			return err
+		}
+	}
+
+	// переименовываем лист
+	if cfg.sheetName != "" {
+		xlsxFile.SetSheetName(sheetName, cfg.sheetName)
+	}
+
+	return nil
 }
 
 // TO DO
