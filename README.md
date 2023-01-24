@@ -52,6 +52,7 @@ csv2xlsx -c config.cfg -f input.csv -o output.xlsx
 
 ##### [Имя секции] - номер столбца (начало с 1)
  - width = ширина столбца (0 ширина по тексту)
+ - size = Размер текста (число);
  - horizontal = Выравнивание текста в ячейках по горизонтали (left|center|right|fill|distributed|justify|centerContinuous);
  - replace = "строка для замены","на что заменяем"
  - delete = удалить столбец из xlsx (логическое)

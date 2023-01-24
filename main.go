@@ -42,6 +42,7 @@ type _column struct {
 	finds      []_find
 	deleted    bool
 	horizontal string
+	size       float64
 }
 
 type _style struct {
@@ -303,6 +304,7 @@ func loadCFG(iniFile string, cfg *_cfg) error {
 		col.width = inifile.Section(section).Key("width").MustInt(-1)
 		col.horizontal = inifile.Section(section).Key("horizontal").MustString("")
 		col.deleted = inifile.Section(section).Key("delete").MustBool(false)
+		col.size = inifile.Section(section).Key("size").MustFloat64(0)
 
 		// Load replaces
 		allreplace := inifile.Section(section).Key("replace").ValueWithShadows()

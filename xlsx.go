@@ -141,6 +141,11 @@ func xlsxSetColumnFormat(xlsxFile *excelize.File, sheetName string, colsParam []
 			}
 
 		}
+		if column.size != 0 {
+			colStyleIsDefault = false
+			colStyleDefault.Font.Size = column.size
+		}
+
 		// Стиль для текущего column
 		colStyleID, err := xlsxNewStyleID(xlsxFile, colStyleDefault)
 		if err != nil {
