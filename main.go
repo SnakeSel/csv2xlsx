@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/csv"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -106,23 +107,15 @@ func generateXLSXFromCSV(csvPath string, delimiter rune) (*excelize.File, error)
 
 	row := 1
 
-	for err == nil {
+	for {
 		// Считываем следующую строку
 		fields, err := reader.Read()
+		if errors.Is(err, io.EOF) {
+			break
+		}
 		if err != nil {
-			// switch err {
-			// case csv.ErrFieldCount:
-			// 	fmt.Println("Requested item not found")
-			// case io.EOF:
-			// 	fmt.Println("EOF")
-			// default:
-			// 	fmt.Println("Unknown error occurred")
-			// }
-			if err == io.EOF {
-				break
-			}
 			// Пытаемся обработать заголовок ВНИИРА
-			if row == 2 {
+			if errors.Is(err, csv.ErrFieldCount) && row == 2 {
 				reader.FieldsPerRecord = 0
 			} else {
 				return nil, err
@@ -295,56 +288,67 @@ func loadCFG(iniFile string, cfg *_cfg) error {
 
 		// Настройки столбцов
 		// Добавляем данные секции (столбца)
-		var col _column
-		col.id, err = strconv.Atoi(section)
-		// Если секция не цифровая, пропускаем
-		if err != nil {
-			continue
+		col, err := loadColumnSettings(inifile, section)
+		if err == nil {
+			cfg.cols = append(cfg.cols, col)
 		}
-		col.width = inifile.Section(section).Key("width").MustInt(-1)
-		col.horizontal = inifile.Section(section).Key("horizontal").MustString("")
-		col.deleted = inifile.Section(section).Key("delete").MustBool(false)
-		col.size = inifile.Section(section).Key("size").MustFloat64(0)
-
-		// Load replaces
-		allreplace := inifile.Section(section).Key("replace").ValueWithShadows()
-		for _, repl := range allreplace {
-			ss := strings.Split(repl, ",")
-			if len(ss) == 2 {
-				col.replaces = append(col.replaces, _replace{strings.Trim(ss[0], "\"'"), strings.Trim(ss[1], " \"'")})
-
-			}
-		}
-
-		// Load finds
-		allfinds := inifile.Section(section).Key("find").ValueWithShadows()
-		for _, find := range allfinds {
-			ss := strings.Split(find, ",")
-			if len(ss) > 2 {
-				var f _find
-				f.text = strings.Trim(ss[0], " \"'")
-				f.target = strings.Trim(ss[1], " \"'")
-				// Идем по всем actions
-				for i := 2; i < len(ss); i++ {
-					actionsl := strings.Split(strings.TrimSpace(ss[i]), "=")
-					var action _action
-					action.name = strings.Trim(actionsl[0], "\"'")
-
-					if len(actionsl) > 1 {
-						action.value = strings.Trim(actionsl[1], "\"'")
-					}
-					f.actions = append(f.actions, action)
-
-				}
-				col.finds = append(col.finds, f)
-
-			}
-		}
-		cfg.cols = append(cfg.cols, col)
 
 	} // конец цикла по секциям
 
 	return nil
+}
+
+// Загрузка настроек столбца
+func loadColumnSettings(inifile *ini.File, section string) (_column, error) {
+	var col _column
+	var err error
+
+	col.id, err = strconv.Atoi(section)
+	// Если секция не цифровая, пропускаем
+	if err != nil {
+		return col, err
+	}
+
+	col.width = inifile.Section(section).Key("width").MustInt(-1)
+	col.horizontal = inifile.Section(section).Key("horizontal").MustString("")
+	col.deleted = inifile.Section(section).Key("delete").MustBool(false)
+	col.size = inifile.Section(section).Key("size").MustFloat64(0)
+
+	// Load replaces
+	allreplace := inifile.Section(section).Key("replace").ValueWithShadows()
+	for _, repl := range allreplace {
+		ss := strings.Split(repl, ",")
+		if len(ss) == 2 {
+			col.replaces = append(col.replaces, _replace{strings.Trim(ss[0], "\"'"), strings.Trim(ss[1], " \"'")})
+
+		}
+	}
+
+	// Load finds
+	allfinds := inifile.Section(section).Key("find").ValueWithShadows()
+	for _, find := range allfinds {
+		ss := strings.Split(find, ",")
+		if len(ss) > 2 {
+			var f _find
+			f.text = strings.Trim(ss[0], " \"'")
+			f.target = strings.Trim(ss[1], " \"'")
+			// Идем по всем actions
+			for i := 2; i < len(ss); i++ {
+				actionsl := strings.Split(strings.TrimSpace(ss[i]), "=")
+				var action _action
+				action.name = strings.Trim(actionsl[0], "\"'")
+
+				if len(actionsl) > 1 {
+					action.value = strings.Trim(actionsl[1], "\"'")
+				}
+				f.actions = append(f.actions, action)
+
+			}
+			col.finds = append(col.finds, f)
+
+		}
+	}
+	return col, nil
 }
 
 func delimiterToRune(delimiter string) rune {

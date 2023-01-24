@@ -120,7 +120,7 @@ func xlsxSetColumnFormat(xlsxFile *excelize.File, sheetName string, colsParam []
 			// Пропускаем
 		case 0:
 			if err := colWidthAuto(xlsxFile, sheetName, column.id-deleted); err != nil {
-				//return err
+				// return err
 				fmt.Println("[WRN]\tcolWidthAuto: ", err.Error())
 			}
 		default:
@@ -129,24 +129,10 @@ func xlsxSetColumnFormat(xlsxFile *excelize.File, sheetName string, colsParam []
 			}
 		}
 
-		// Базовый стиль столбца
-		colStyleIsDefault := true
-		colStyleDefault := style
+		// Стиль столбца из общего стиля
+		colStyleDefault, colStyleIsChanged := xlsxGetColumnStyleFromSettings(style, column)
 
-		if column.horizontal != "" {
-			colStyleIsDefault = false
-			if err := setAlignment(&colStyleDefault.Alignment, "horizontal", column.horizontal); err != nil {
-				fmt.Printf("[WRN]\tcolumnsWork[%d]: %s\n", column.id, err.Error())
-				break
-			}
-
-		}
-		if column.size != 0 {
-			colStyleIsDefault = false
-			colStyleDefault.Font.Size = column.size
-		}
-
-		// Стиль для текущего column
+		// StyleID для текущего column
 		colStyleID, err := xlsxNewStyleID(xlsxFile, colStyleDefault)
 		if err != nil {
 			fmt.Printf("[WRN]\tcolumnsWork[%d]: %s\n", column.id, err.Error())
@@ -175,7 +161,7 @@ func xlsxSetColumnFormat(xlsxFile *excelize.File, sheetName string, colsParam []
 		}
 
 		// Правила поиска или изменение стиля
-		if len(column.finds) > 0 || !colStyleIsDefault {
+		if len(column.finds) > 0 || colStyleIsChanged {
 			// Заполняем стили для всех finds
 			for findID, find := range column.finds {
 				column.finds[findID].style = newStyleFind(find, colStyleDefault)
@@ -186,7 +172,7 @@ func xlsxSetColumnFormat(xlsxFile *excelize.File, sheetName string, colsParam []
 				}
 			}
 
-			if err := colApplyFind(xlsxFile, sheetName, columnName, column, cols[column.id-1], colStyleIsDefault, colStyleID); err != nil {
+			if err := colApplyFind(xlsxFile, sheetName, columnName, column, cols[column.id-1], colStyleIsChanged, colStyleID); err != nil {
 				return err
 			}
 		}
@@ -196,13 +182,13 @@ func xlsxSetColumnFormat(xlsxFile *excelize.File, sheetName string, colsParam []
 	return nil
 }
 
-func colApplyFind(xlsxFile *excelize.File, sheetName string, columnName string, column _column, colRows []string, colStyleIsDefault bool, colStyleID int) error {
+func colApplyFind(xlsxFile *excelize.File, sheetName string, columnName string, column _column, colRows []string, colStyleIsChanged bool, colStyleID int) error {
 
 	// перебираем строки
 	for n, rowCell := range colRows {
 
 		// Применяем стиль столбца (если менялся)
-		if !colStyleIsDefault {
+		if colStyleIsChanged {
 			// Устанавливаем стиль ячейки
 			if err := xlsxFile.SetCellStyle(sheetName, fmt.Sprintf("%s%d", columnName, n+1), fmt.Sprintf("%s%d", columnName, n+1), colStyleID); err != nil {
 				return err
@@ -322,7 +308,7 @@ func xlsxSetHeader(xlsxFile *excelize.File, sheetName, startCell, endCell string
 	if len(header.color) == 6 {
 		style.Font.Color = header.color
 	}
-	//headerFont.Family= "Times New Roman"
+	// headerFont.Family= "Times New Roman"
 	if header.size != 0 {
 		style.Font.Size = header.size
 	}
@@ -476,4 +462,24 @@ func xlsxNewStyleID(xlsxFile *excelize.File, style _style) (int, error) {
 		Border:    style.Border,
 	})
 
+}
+
+// Стиль столбца из общего стиля
+func xlsxGetColumnStyleFromSettings(style _style, column _column) (_style, bool) {
+	styleIsChanged := false
+	colStyle := style
+
+	if column.horizontal != "" {
+		styleIsChanged = true
+		if err := setAlignment(&colStyle.Alignment, "horizontal", column.horizontal); err != nil {
+			fmt.Printf("[WRN]\txlsxGetColumnStyleFromSettings[%d]: %s\n", column.id, err.Error())
+		}
+
+	}
+	if column.size != 0 {
+		styleIsChanged = true
+		colStyle.Font.Size = column.size
+	}
+
+	return colStyle, styleIsChanged
 }

@@ -33,8 +33,7 @@ fi
 # Run golangci-lint
 if which -a golangci-lint >/dev/null 2>&1; then
     #linter="golangci-lint run -E gocritic -E stylecheck -E nestif -E revive -E govet"
-    linter="golangci-lint run -E stylecheck -E revive -E govet"
-    #linter="golangci-lint run"
+    linter="golangci-lint run"
 
     if $linter;then
         echo " - Linter ${ClGreen}OK${Clreset}"
