@@ -26,7 +26,7 @@ func xlsxAddTitle(xlsxFile *excelize.File, sheetName string, title _title, style
 		}
 	} else {
 		// Иначе вставлеяем новую строку
-		if err := xlsxFile.InsertRow(sheetName, 1); err != nil {
+		if err := xlsxFile.InsertRows(sheetName, 1, 1); err != nil {
 			return err
 		}
 	}

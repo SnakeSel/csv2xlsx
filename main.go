@@ -418,7 +418,9 @@ func applyFormatting(xlsxFile *excelize.File, cfg *_cfg) error {
 
 	// переименовываем лист
 	if cfg.sheetName != "" {
-		xlsxFile.SetSheetName(sheetName, cfg.sheetName)
+		if err := xlsxFile.SetSheetName(sheetName, cfg.sheetName); err != nil {
+			return err
+		}
 	}
 
 	return nil
