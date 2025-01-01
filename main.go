@@ -117,7 +117,9 @@ func csvParseErrFieldCount(reads []string, fieldCount int) [][]string {
 			if i != 0 {
 				r = strings.Replace(r, "\"", "", 1)
 			}
-			fmt.Println("[DBG] ", r)
+			if DEBUG {
+				fmt.Println("[DBG] ", r)
+			}
 
 			if len(r) != 0 {
 				st = append(st, r)
@@ -125,7 +127,9 @@ func csvParseErrFieldCount(reads []string, fieldCount int) [][]string {
 			}
 			if unCol >= fieldCount {
 				parsedRows = append(parsedRows, st)
-				fmt.Printf("[DBG] add rows, %d columns\n", len(st))
+				if DEBUG {
+					fmt.Printf("[DBG] add rows, %d columns\n", len(st))
+				}
 				st = make([]string, 0)
 				unCol = 0
 			}
