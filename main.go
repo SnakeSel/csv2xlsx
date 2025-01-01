@@ -15,7 +15,11 @@ import (
 	"gopkg.in/ini.v1"
 )
 
-var version = "20221220"
+var (
+	version = "20221220"
+	//nolint:gochecknoglobals // TODO: уйти от глобальной переменной
+	DEBUG = false
+)
 
 type _replace struct {
 	from string
@@ -44,6 +48,11 @@ type _column struct {
 	deleted    bool
 	horizontal string
 	size       float64
+}
+
+type _defColParam struct {
+	width int
+	// horizontal string
 }
 
 type _style struct {
@@ -77,6 +86,7 @@ type _cfg struct {
 	delimiter rune
 	cols      []_column
 	style     _style
+	defcol    _defColParam
 }
 
 func usage() {
@@ -88,8 +98,47 @@ func usage() {
 
 }
 
+// Парсим проблемые поля из csv
+func csvParseErrFieldCount(reads []string, fieldCount int) [][]string {
+	// Массив с распарсенными по полям строками
+	var parsedRows [][]string
+	// id поля которое парсится
+	var unCol = 0
+	// Текущая строка csv
+	var st []string
+
+	// Идем по полученным полям и ищем косяк c "":
+	// "" будет как "\n", при этом два поля объеденятся
+	for _, field := range reads {
+		f := strings.Split(field, "\n")
+
+		for i, r := range f {
+			// все что больше 0, исправленные. В начале надо убрать "
+			if i != 0 {
+				r = strings.Replace(r, "\"", "", 1)
+			}
+			fmt.Println("[DBG] ", r)
+
+			if len(r) != 0 {
+				st = append(st, r)
+				unCol++
+			}
+			if unCol >= fieldCount {
+				parsedRows = append(parsedRows, st)
+				fmt.Printf("[DBG] add rows, %d columns\n", len(st))
+				st = make([]string, 0)
+				unCol = 0
+			}
+		}
+	}
+	return parsedRows
+}
+
 // Генерация xlsx из csv
 func generateXLSXFromCSV(csvPath string, delimiter rune) (*excelize.File, error) {
+	if DEBUG {
+		fmt.Println("[DBG] Открываем файл ", csvPath)
+	}
 	csvFile, err := os.Open(csvPath)
 	if err != nil {
 		return nil, err
@@ -99,6 +148,8 @@ func generateXLSXFromCSV(csvPath string, delimiter rune) (*excelize.File, error)
 	reader := csv.NewReader(csvFile)
 	// reader.Comma = '\t'
 	reader.Comma = delimiter
+	reader.LazyQuotes = true
+	// reader.ReuseRecord = true
 
 	xlsxFile := excelize.NewFile()
 
@@ -108,22 +159,65 @@ func generateXLSXFromCSV(csvPath string, delimiter rune) (*excelize.File, error)
 	row := 1
 
 	for {
+		if DEBUG {
+			fmt.Printf("[DBG] Обрабатываем строку: %d\n", row)
+		}
 		// Считываем следующую строку
 		fields, err := reader.Read()
 		if errors.Is(err, io.EOF) {
 			break
 		}
+		//nolint:nestif // TODO: переписать
 		if err != nil {
+			switch {
 			// Пытаемся обработать заголовок ВНИИРА
-			if errors.Is(err, csv.ErrFieldCount) && row == 2 {
+			case errors.Is(err, csv.ErrFieldCount) && row == 2:
+				if DEBUG {
+					fmt.Println("[DBG] не совпало кол-во полей с пред. записью.\nТ.к. срока 2, считаем заголовком.")
+				}
 				reader.FieldsPerRecord = 0
-			} else {
+
+			case errors.Is(err, csv.ErrFieldCount):
+
+				// TODO: переписать по человечески
+				if DEBUG {
+					fmt.Println("[ERR] не совпало кол-во полей с пред. записью.")
+					fmt.Println(fields)
+					fmt.Println("[DBG] пытаемся обработать")
+				}
+
+				// Пытаемся обработать ""
+				parsedRows := csvParseErrFieldCount(fields, reader.FieldsPerRecord-1)
+
+				// Добавляем полученные строки в файл
+				for _, fields := range parsedRows {
+					for i, field := range fields {
+						if DEBUG {
+							fmt.Printf("[DBG] строка: %d, столбец: %d\n", row, i)
+						}
+						column, err := excelize.ColumnNumberToName(i + 1)
+						if err != nil {
+							return nil, err
+						}
+
+						err = xlsxFile.SetCellStr(sheet, fmt.Sprintf("%s%d", column, row), field)
+						if err != nil {
+							return nil, err
+						}
+					}
+
+					row++
+				}
+				continue
+			default:
 				return nil, err
 			}
-
 		}
 
 		for i, field := range fields {
+			if DEBUG {
+				fmt.Printf("[DBG] строка: %d, столбец: %d\n", row, i)
+			}
 			column, err := excelize.ColumnNumberToName(i + 1)
 			if err != nil {
 				return nil, err
@@ -146,6 +240,7 @@ func main() {
 	var csvPath = flag.String("f", "", "Path to the CSV input file")
 	var cfgPatch = flag.String("c", "", "Path to the config file (optional)")
 	var delimiter = flag.String("d", "\t", "Delimiter for felds in the CSV input (optional)")
+	flag.BoolVar(&DEBUG, "debug", false, "Debug (optional)")
 
 	if len(os.Args) < 2 {
 		usage()
@@ -164,6 +259,9 @@ func main() {
 
 	// Загрузка настроек
 	if *cfgPatch != "" {
+		if DEBUG {
+			fmt.Println("Load config: ", *cfgPatch)
+		}
 		if err := loadCFG(*cfgPatch, cfg); err != nil {
 			fmt.Println(err.Error())
 		}
@@ -249,6 +347,8 @@ func loadCFG(iniFile string, cfg *_cfg) error {
 	if inifile.Section("").Key("family").MustString("") != "" {
 		cfg.style.Font.Family = inifile.Section("").Key("family").MustString("")
 	}
+
+	cfg.defcol.width = inifile.Section("").Key("width").MustInt(-1)
 
 	// Секции
 	for _, section := range inifile.SectionStrings() {
@@ -383,7 +483,7 @@ func applyFormatting(xlsxFile *excelize.File, cfg *_cfg) error {
 	}
 
 	// задаем форматирование всей таблице
-	if err := xlsxSetTableStyle(xlsxFile, sheetName, cfg.style); err != nil {
+	if err := xlsxSetTableStyle(xlsxFile, sheetName, cfg.style, cfg.defcol); err != nil {
 		return err
 	}
 

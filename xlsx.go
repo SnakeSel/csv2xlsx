@@ -1,6 +1,7 @@
 // xlsx.go содержит функции манипуляций с готовым файлом xlsx
 //
 
+//nolint:cyclop // TODO: вынести в отдельный модуль
 package main
 
 import (
@@ -203,6 +204,7 @@ func colApplyFind(xlsxFile *excelize.File, sheetName string, columnName string, 
 				switch find.target {
 				case "text": // Если меняем стиль текста
 					// Получаем отформатированный текст
+					//nolint:gosec // TODO: проверить!!!!
 					rtextall := getFindRichText(rowCell, find.text, &find.style.Font)
 
 					// Заносим текст в ячейку
@@ -231,7 +233,7 @@ func colApplyFind(xlsxFile *excelize.File, sheetName string, columnName string, 
 }
 
 // задаем форматирование всей таблице
-func xlsxSetTableStyle(xlsxFile *excelize.File, sheetName string, style _style) error {
+func xlsxSetTableStyle(xlsxFile *excelize.File, sheetName string, style _style, defColumn _defColParam) error {
 
 	// Получаем данные о столбцах
 	cols, err := xlsxFile.GetCols(sheetName)
@@ -242,6 +244,27 @@ func xlsxSetTableStyle(xlsxFile *excelize.File, sheetName string, style _style) 
 	lastColumn, err := excelize.ColumnNumberToName(len(cols))
 	if err != nil {
 		return err
+	}
+
+	for id := 1; id <= len(cols); id++ {
+		// Ширина столбцов
+		switch defColumn.width {
+		case -1:
+			// Пропускаем
+		case 0:
+			if err := colWidthAuto(xlsxFile, sheetName, id); err != nil {
+				// return err
+				fmt.Println("[WRN]\tcolWidthAuto: ", err.Error())
+			}
+		default:
+			columnName, err := excelize.ColumnNumberToName(id)
+			if err != nil {
+				return err
+			}
+			if err := xlsxFile.SetColWidth(sheetName, columnName, columnName, float64(defColumn.width)); err != nil {
+				return err
+			}
+		}
 	}
 
 	// Создаем стиль всей таблицы
