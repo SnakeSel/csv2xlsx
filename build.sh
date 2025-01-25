@@ -1,5 +1,8 @@
 #!/bin/bash
 
+binName="csv2xlsx"
+version=$(date +%Y%m%d)
+
 ## Colors
 ClRed=$(tput setaf 1)
 ClGreen=$(tput setaf 2)
@@ -19,6 +22,20 @@ press_and_cont(){
     echo ""
 }
 
+# входные прараметры - список доп файлов для добавления в архив
+create_arhive(){
+    mkdir -p "./build"
+
+    if tar -caf "./build/${binName}-${version}_linux.tar.gz" ${binName} "$@";then
+        echo " - Linux archive create ${ClGreen}OK${Clreset}"
+    fi
+
+    if [ -f "${binName}.exe" ];then
+        if zip -r "./build/${binName}-${version}_windows.zip" ${binName}.exe "$@";then
+            echo " - Windows archive create ${ClGreen}OK${Clreset}"
+        fi
+    fi
+}
 
 # Run go vet
 if go vet ./...;then
@@ -28,7 +45,6 @@ else
     press_and_cont
     exit 1
 fi
-
 
 # Run golangci-lint
 if which -a golangci-lint >/dev/null 2>&1; then
@@ -47,32 +63,19 @@ else
 fi
 
 # Build
-version=$(date +%Y%m%d)
-
-if go build -ldflags "-s -w -X 'main.version=${version}'";then
+if go build -ldflags "-s -w -X 'main.version=${version}'" -o "${binName}";then
     echo " - Linux build ${ClGreen}OK${Clreset}"
 fi
 
-if GOOS=windows GOARCH=amd64 go build -ldflags "-s -w -X 'main.version=${version}'";then
+if GOOS=windows GOARCH=amd64 go build -ldflags "-s -w -X 'main.version=${version}'" -o "${binName}.exe";then
     echo " - Windows build ${ClGreen}OK${Clreset}"
 fi
 
-# Create archive
-mkdir -p "./build"
-
 chmod +x csv2xlsx
-if tar -caf "./build/csv2xlsx-${version}_linux.tar.gz" csv2xlsx example.cfg ;then
-    echo " - Linux archive create ${ClGreen}OK${Clreset}"
-fi
 
-if zip -r "./build/csv2xlsx-${version}_windows.zip" csv2xlsx.exe example.cfg;then
-    echo " - Windows archive create ${ClGreen}OK${Clreset}"
-fi
-
+# Create archive
+create_arhive "example.cfg"
 
 press_and_cont
 
 exit 0
-
-
-
